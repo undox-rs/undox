@@ -1,0 +1,13 @@
+site:
+  name: "Undox"
+  url: "https://undox.dev"
+  output: "_site"
+
+theme: default
+
+sources:
+  - name: docs
+    path: ./content
+    url_prefix: /
+    repo_url: "https://github.com/undox/undox"
+    edit_path: "docs/"

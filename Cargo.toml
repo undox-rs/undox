@@ -4,3 +4,17 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.100"
+clap = { version = "4.5.53", features = ["derive", "color"] }
+config = "0.15.19"
+git2 = { version = "0.20.3", features = ["https", "ssh"] }
+pulldown-cmark = "0.13"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9.34"
+tera = "1.20"
+thiserror = "2.0.17"
+tokio = { version = "1.48.0", features = ["full"] }
+
+# Syntax highlighting (batteries-included tree-sitter wrapper)
+autumnus = "0.7"
