@@ -112,6 +112,9 @@ pub struct RootConfig {
     pub theme: ThemeConfig,
     #[serde(default)]
     pub markdown: MarkdownConfig,
+    /// Development-specific settings (watch mode, etc.)
+    #[serde(default)]
+    pub dev: DevConfig,
 }
 
 /// Child configuration - used in source repos to point back to the parent site.
@@ -246,6 +249,7 @@ impl ChildConfig {
             sources,
             theme: parent_root.theme.clone(),
             markdown: parent_root.markdown.clone(),
+            dev: parent_root.dev.clone(),
         };
 
         Ok(ResolvedChildConfig {
@@ -468,10 +472,48 @@ pub struct SourceOverrides {
     pub nav: Option<NavConfig>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DevConfig {
     /// Override parent path for local development
     pub parent: Option<String>,
+    /// File watching configuration
+    #[serde(default)]
+    pub watch: WatchConfig,
+}
+
+/// Configuration for file watching during development.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WatchConfig {
+    /// Use polling-based watcher instead of native file system events.
+    /// Useful for network filesystems, Docker volumes, or other situations
+    /// where native events are unreliable.
+    #[serde(default)]
+    pub poll: bool,
+    /// Poll interval in milliseconds (only used if poll=true).
+    #[serde(default = "default_poll_interval_ms")]
+    pub poll_interval_ms: u64,
+    /// Debounce timeout in milliseconds.
+    /// Changes within this window are batched together.
+    #[serde(default = "default_debounce_ms")]
+    pub debounce_ms: u64,
+}
+
+fn default_poll_interval_ms() -> u64 {
+    500
+}
+
+fn default_debounce_ms() -> u64 {
+    100
+}
+
+impl Default for WatchConfig {
+    fn default() -> Self {
+        Self {
+            poll: false,
+            poll_interval_ms: default_poll_interval_ms(),
+            debounce_ms: default_debounce_ms(),
+        }
+    }
 }
 
 // =============================================================================

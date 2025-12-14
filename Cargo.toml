@@ -34,3 +34,7 @@ pagefind = "1.5.0-alpha.2"
 axum = "0.8"
 tower-http = { version = "0.6", features = ["fs"] }
 open = "5"
+
+# File watching
+notify = "8"
+notify-debouncer-full = "0.5"
