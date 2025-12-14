@@ -1,6 +1,13 @@
 [package]
 name = "undox"
 version = "0.1.0"
+description = "A static site generator for multi-repo documentation"
+repository = "https://github.com/BinaryMuse/undox"
+homepage = "https://undox.dev"
+readme = "README.md"
+keywords = ["documentation", "static-site", "markdown"]
+categories = ["command-line-utilities", "development-tools"]
+authors = ["Michelle Tilley <michelle@michelletilley.net>"]
 edition = "2024"
 license = "MIT"
 
