@@ -6,6 +6,17 @@
     <title>{% block title %}{{ page.title }}{% endblock %} - {{ site.name }}</title>
     {% if page.description %}<meta name="description" content="{{ page.description }}">{% endif %}
     {% block head %}{% endblock %}
+    <script>
+        // Prevent flash of wrong theme
+        (function() {
+            const stored = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = stored || 'system';
+            const isDark = theme === 'dark' || (theme === 'system' && prefersDark);
+            if (isDark) document.documentElement.setAttribute('data-theme', 'dark');
+            document.documentElement.setAttribute('data-theme-setting', theme);
+        })();
+    </script>
     <style>
         :root {
             --color-bg: #ffffff;
@@ -16,6 +27,16 @@
             --color-link: #0066cc;
             --color-link-hover: #0052a3;
             --sidebar-width: 280px;
+        }
+
+        [data-theme="dark"] {
+            --color-bg: #0d1117;
+            --color-text: #e6edf3;
+            --color-text-muted: #8b949e;
+            --color-border: #30363d;
+            --color-code-bg: #161b22;
+            --color-link: #58a6ff;
+            --color-link-hover: #79b8ff;
         }
 
         * {
@@ -60,6 +81,40 @@
 
         .site-title:hover {
             text-decoration: none;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            padding: 0.4rem 0.6rem;
+            cursor: pointer;
+            color: var(--color-text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.8rem;
+            transition: border-color 0.2s, color 0.2s;
+        }
+
+        .theme-toggle:hover {
+            border-color: var(--color-text-muted);
+            color: var(--color-text);
+        }
+
+        .theme-toggle svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .theme-toggle .theme-label {
+            text-transform: capitalize;
         }
 
         .main-wrapper {
@@ -281,7 +336,21 @@
 <body>
     <header class="site-header">
         <a href="/" class="site-title">{{ site.name }}</a>
-        {% block header_right %}{% endblock %}
+        <div class="header-controls">
+            {% block header_right %}{% endblock %}
+            <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+                <svg class="icon-system" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <svg class="icon-light" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <svg class="icon-dark" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+                <span class="theme-label">System</span>
+            </button>
+        </div>
     </header>
 
     <div class="main-wrapper">
@@ -321,6 +390,59 @@
         </main>
     </div>
 
+    <script>
+        (function() {
+            const toggle = document.getElementById('theme-toggle');
+            const label = toggle.querySelector('.theme-label');
+            const html = document.documentElement;
+            const modes = ['system', 'light', 'dark'];
+
+            function getSystemTheme() {
+                return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+
+            function applyTheme(setting) {
+                const effectiveTheme = setting === 'system' ? getSystemTheme() : setting;
+
+                if (effectiveTheme === 'dark') {
+                    html.setAttribute('data-theme', 'dark');
+                } else {
+                    html.removeAttribute('data-theme');
+                }
+
+                html.setAttribute('data-theme-setting', setting);
+                label.textContent = setting.charAt(0).toUpperCase() + setting.slice(1);
+
+                // Show the correct icon
+                toggle.querySelector('.icon-system').style.display = setting === 'system' ? 'block' : 'none';
+                toggle.querySelector('.icon-light').style.display = setting === 'light' ? 'block' : 'none';
+                toggle.querySelector('.icon-dark').style.display = setting === 'dark' ? 'block' : 'none';
+            }
+
+            function cycleSetting() {
+                const current = localStorage.getItem('theme') || 'system';
+                const nextIndex = (modes.indexOf(current) + 1) % modes.length;
+                const next = modes[nextIndex];
+                localStorage.setItem('theme', next);
+                applyTheme(next);
+            }
+
+            // Initialize
+            const stored = localStorage.getItem('theme') || 'system';
+            applyTheme(stored);
+
+            // Handle toggle click
+            toggle.addEventListener('click', cycleSetting);
+
+            // Listen for system theme changes
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                const setting = localStorage.getItem('theme') || 'system';
+                if (setting === 'system') {
+                    applyTheme('system');
+                }
+            });
+        })();
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>
