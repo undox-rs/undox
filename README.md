@@ -1,5 +1,3 @@
-# undox
-
 <p align="center">
   <picture>
     <source srcset="./assets/logo/wordmark_dark.png" media="(prefers-color-scheme: dark)">
@@ -8,7 +6,7 @@
 </p>
 
 
-A batteries-included static site generator for documentation, with first-class support for aggregating content from multiple repositories.
+**undox** is a batteries-included static site generator for documentation, with first-class support for aggregating content from multiple repositories.
 
 > This project is in early development. This readme is aspirational. Expect frequent breaking changes and missing features.
 
