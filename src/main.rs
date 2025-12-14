@@ -5,6 +5,7 @@ use clap::{Parser, Subcommand};
 mod build;
 mod commands;
 mod config;
+mod theme;
 
 #[derive(Parser)]
 struct Args {

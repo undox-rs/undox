@@ -1,0 +1,10 @@
+name: default
+
+pagefind:
+  root_selector: "main"
+  exclude_selectors:
+    - "nav"
+    - ".sidebar"
+    - ".site-header"
+    - ".search-modal-content"
+    - "pre.athl"

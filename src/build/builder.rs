@@ -23,6 +23,7 @@ pub enum BuildError {
 
 pub struct BuildResult {
     pub output_dir: PathBuf,
+    pub theme_path: PathBuf,
     pub documents: usize,
     pub static_files: usize,
 }
@@ -104,6 +105,7 @@ impl Builder {
 
         Ok(BuildResult {
             output_dir,
+            theme_path,
             documents: doc_count,
             static_files: static_count,
         })

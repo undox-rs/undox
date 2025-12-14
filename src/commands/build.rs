@@ -1,4 +1,4 @@
-use crate::{BuildArgs, build::{Builder, base_path_from_config, build_search_index}, config::Config};
+use crate::{BuildArgs, build::{Builder, base_path_from_config, build_search_index}, config::Config, theme::ThemeConfig};
 
 pub async fn run(args: &BuildArgs) -> Result<(), anyhow::Error> {
     // Determine the config file path
@@ -41,9 +41,12 @@ pub async fn run(args: &BuildArgs) -> Result<(), anyhow::Error> {
         result.static_files
     );
 
+    // Load theme config for pagefind settings
+    let theme_config = ThemeConfig::load(&result.theme_path)?;
+
     // Build search index
     print!("Building search index...");
-    let page_count = build_search_index(&result.output_dir).await?;
+    let page_count = build_search_index(&result.output_dir, &theme_config.pagefind).await?;
     println!(" indexed {} pages", page_count);
 
     Ok(())

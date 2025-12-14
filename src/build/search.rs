@@ -3,6 +3,8 @@ use std::path::Path;
 use pagefind::api::PagefindIndex;
 use pagefind::options::PagefindServiceConfig;
 
+use crate::theme::PagefindConfig;
+
 #[derive(thiserror::Error, Debug)]
 pub enum SearchError {
     #[error("failed to create search index: {0}")]
@@ -16,18 +18,21 @@ pub enum SearchError {
 }
 
 /// Build a search index for the output directory using pagefind.
-pub async fn build_search_index(output_dir: &Path) -> Result<usize, SearchError> {
-    // Configure pagefind
+pub async fn build_search_index(
+    output_dir: &Path,
+    pagefind_config: &PagefindConfig,
+) -> Result<usize, SearchError> {
+    // Configure pagefind from theme settings
+    let language = pagefind_config
+        .force_language
+        .clone()
+        .unwrap_or_else(|| "en".to_string());
+
     let config = PagefindServiceConfig::builder()
-        .keep_index_url(false) // Strip index.html from URLs
-        .root_selector("main".to_string()) // Index main content, not nav/header
-        .exclude_selectors(vec![
-            "nav".to_string(),
-            ".sidebar".to_string(),
-            ".site-header".to_string(),
-            "pre.athl".to_string(), // Exclude code blocks from search
-        ])
-        .force_language("en".to_string())
+        .keep_index_url(false)
+        .root_selector(pagefind_config.root_selector.clone())
+        .exclude_selectors(pagefind_config.exclude_selectors.clone())
+        .force_language(language)
         .build();
 
     // Create the index
