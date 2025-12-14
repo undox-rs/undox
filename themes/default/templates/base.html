@@ -72,6 +72,7 @@
         background: var(--color-bg);
         margin: 0;
         padding: 0;
+        overflow-y: scroll;
       }
 
       a {
@@ -242,6 +243,8 @@
       .main-wrapper {
         display: flex;
         min-height: calc(100vh - var(--header-height));
+        max-width: 1400px;
+        margin: 0 auto;
       }
 
       /* Left Sidebar */
@@ -270,13 +273,14 @@
         flex: 1;
         min-width: 0;
         display: flex;
+        justify-content: center;
       }
 
       .content {
-        flex: 1;
-        min-width: 0;
+        width: 100%;
         max-width: 800px;
         padding: 2rem;
+        flex-shrink: 1;
       }
 
       .content [id] {
@@ -943,8 +947,8 @@
           {% endif %} {% block content %}{% endblock %}
         </main>
 
-        {% if toc | length > 1 %}
         <aside class="toc-sidebar">
+          {% if toc | length > 1 %}
           <div class="toc-title">On this page</div>
           <nav>
             <ul class="toc-list">
@@ -959,8 +963,8 @@
               {% endfor %}
             </ul>
           </nav>
+          {% endif %}
         </aside>
-        {% endif %}
       </div>
     </div>
 
@@ -1036,13 +1040,15 @@
         function openSidebar() {
           sidebar.classList.add("open");
           overlay.classList.add("open");
-          document.body.style.overflow = "hidden";
+          document.body.style.overflowX = "hidden";
+          document.body.style.overflowY = "hidden";
         }
 
         function closeSidebar() {
           sidebar.classList.remove("open");
           overlay.classList.remove("open");
-          document.body.style.overflow = "";
+          document.body.style.overflow = "scroll";
+          document.body.style.overflowX = "auto";
         }
 
         menuToggle.addEventListener("click", () => {
