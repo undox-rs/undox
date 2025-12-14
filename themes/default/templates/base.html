@@ -10,6 +10,9 @@
     {% if page.description %}
     <meta name="description" content="{{ page.description }}" />
     {% endif %}
+    {% if site.favicon %}
+    <link rel="icon" href="{{ site.favicon }}" />
+    {% endif %}
     <link href="/_pagefind/pagefind-ui.css" rel="stylesheet" />
     {% block head %}{% endblock %}
     <script>

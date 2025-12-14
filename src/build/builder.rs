@@ -106,6 +106,7 @@ impl Builder {
         let site_context = SiteContext {
             name: self.config.site.name.clone(),
             url: self.config.site.url.clone(),
+            favicon: self.config.site.favicon.clone(),
         };
 
         // Get theme settings for templates

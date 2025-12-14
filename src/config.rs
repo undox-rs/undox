@@ -126,6 +126,8 @@ pub struct SiteConfig {
     pub url: Option<String>,
     #[serde(default = "default_output")]
     pub output: PathBuf,
+    /// Path to the site favicon (relative to config file)
+    pub favicon: Option<String>,
 }
 
 fn default_output() -> PathBuf {

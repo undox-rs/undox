@@ -111,6 +111,7 @@ pub struct PageContext {
 pub struct SiteContext {
     pub name: String,
     pub url: Option<String>,
+    pub favicon: Option<String>,
 }
 
 /// Information about the current page.

@@ -27,6 +27,7 @@ pub async fn run(args: &InitArgs) -> Result<(), anyhow::Error> {
             name: "My Undox Site".into(),
             url: Some("https://my-undox-site.com".into()),
             output: "_site".into(),
+            favicon: None,
         },
         sources: vec![],
         theme: ThemeConfig::default(),

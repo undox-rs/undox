@@ -1,6 +1,7 @@
 site:
   name: "Undox"
   url: "https://undox.dev"
+  favicon: ./assets/logo/logo.png
   output: "_site"
 
 theme:
