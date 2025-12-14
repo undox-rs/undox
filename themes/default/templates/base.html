@@ -1,1068 +1,1273 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{{ page.title }}{% endblock %} - {{ site.name }}</title>
-    {% if page.description %}<meta name="description" content="{{ page.description }}">{% endif %}
-    <link href="/_pagefind/pagefind-ui.css" rel="stylesheet">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      {% block title %}{{ page.title }}{% endblock %} - {{ site.name }}
+    </title>
+    {% if page.description %}
+    <meta name="description" content="{{ page.description }}" />
+    {% endif %}
+    <link href="/_pagefind/pagefind-ui.css" rel="stylesheet" />
     {% block head %}{% endblock %}
     <script>
-        // Prevent flash of wrong theme
-        (function() {
-            const stored = localStorage.getItem('theme');
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const theme = stored || 'system';
-            const isDark = theme === 'dark' || (theme === 'system' && prefersDark);
-            if (isDark) document.documentElement.setAttribute('data-theme', 'dark');
-            document.documentElement.setAttribute('data-theme-setting', theme);
-        })();
+      // Prevent flash of wrong theme
+      (function () {
+        const stored = localStorage.getItem("theme");
+        const prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)"
+        ).matches;
+        const theme = stored || "system";
+        const isDark = theme === "dark" || (theme === "system" && prefersDark);
+        if (isDark) document.documentElement.setAttribute("data-theme", "dark");
+        document.documentElement.setAttribute("data-theme-setting", theme);
+      })();
     </script>
     <style>
-        :root {
-            --color-bg: #ffffff;
-            --color-text: #1a1a1a;
-            --color-text-muted: #666666;
-            --color-border: #e5e5e5;
-            --color-code-bg: #f5f5f5;
-            --color-link: #0066cc;
-            --color-link-hover: #0052a3;
-            --sidebar-width: 260px;
-            --toc-width: 220px;
-            --header-height: 60px;
+      :root {
+        --color-bg: #ffffff;
+        --color-text: #1a1a1a;
+        --color-text-muted: #666666;
+        --color-border: #e5e5e5;
+        --color-code-bg: #f5f5f5;
+        --color-link: #0066cc;
+        --color-link-hover: #0052a3;
+        --sidebar-width: 260px;
+        --toc-width: 220px;
+        --header-height: 60px;
+      }
+
+      [data-theme="dark"] {
+        --color-bg: #0d1117;
+        --color-text: #e6edf3;
+        --color-text-muted: #8b949e;
+        --color-border: #30363d;
+        --color-code-bg: #161b22;
+        --color-link: #58a6ff;
+        --color-link-hover: #79b8ff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: initial;
+        }
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
+        color: var(--color-text);
+        background: var(--color-bg);
+        margin: 0;
+        padding: 0;
+      }
+
+      a {
+        color: var(--color-link);
+        text-decoration: none;
+      }
+
+      a:hover {
+        color: var(--color-link-hover);
+        text-decoration: underline;
+      }
+
+      /* Layout */
+      .site-header {
+        border-bottom: 1px solid var(--color-border);
+        padding: 0 1.5rem;
+        height: var(--header-height);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: sticky;
+        top: 0;
+        background: var(--color-bg);
+        z-index: 100;
+      }
+
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .menu-toggle {
+        display: none;
+        background: none;
+        border: none;
+        padding: 0.5rem;
+        cursor: pointer;
+        color: var(--color-text);
+      }
+
+      .menu-toggle svg {
+        width: 24px;
+        height: 24px;
+        display: block;
+      }
+
+      .site-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--color-text);
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+      }
+
+      .site-title:hover {
+        text-decoration: none;
+      }
+
+      .site-logo {
+        height: 28px;
+        width: auto;
+      }
+
+      .site-logo-light {
+        display: block;
+      }
+
+      .site-logo-dark {
+        display: none;
+      }
+
+      [data-theme="dark"] .site-logo-light {
+        display: none;
+      }
+
+      [data-theme="dark"] .site-logo-dark {
+        display: block;
+      }
+
+      .header-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      /* Search */
+      .search-button {
+        background: none;
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        padding: 0.4rem 0.75rem;
+        cursor: pointer;
+        color: var(--color-text-muted);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        transition: border-color 0.2s, color 0.2s;
+        min-width: 160px;
+      }
+
+      .search-button:hover {
+        border-color: var(--color-text-muted);
+        color: var(--color-text);
+      }
+
+      .search-button svg {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+      }
+
+      .search-button span {
+        flex: 1;
+        text-align: left;
+      }
+
+      .search-button kbd {
+        font-family: inherit;
+        font-size: 0.75rem;
+        background: var(--color-code-bg);
+        padding: 0.15rem 0.4rem;
+        border-radius: 4px;
+        border: 1px solid var(--color-border);
+      }
+
+      .theme-toggle {
+        background: none;
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        padding: 0.4rem 0.5rem;
+        cursor: pointer;
+        color: var(--color-text-muted);
+        display: flex;
+        align-items: center;
+        transition: border-color 0.2s, color 0.2s;
+      }
+
+      .theme-toggle:hover {
+        border-color: var(--color-text-muted);
+        color: var(--color-text);
+      }
+
+      .theme-toggle svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .theme-toggle .theme-label {
+        display: none;
+      }
+
+      .main-wrapper {
+        display: flex;
+        min-height: calc(100vh - var(--header-height));
+      }
+
+      /* Left Sidebar */
+      .sidebar {
+        width: var(--sidebar-width);
+        border-right: 1px solid var(--color-border);
+        padding: 1.5rem 1rem;
+        position: sticky;
+        top: var(--header-height);
+        height: calc(100vh - var(--header-height));
+        overflow-y: auto;
+        flex-shrink: 0;
+      }
+
+      .sidebar-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        top: var(--header-height);
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 90;
+      }
+
+      /* Content Area */
+      .content-wrapper {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+      }
+
+      .content {
+        flex: 1;
+        min-width: 0;
+        max-width: 800px;
+        padding: 2rem;
+      }
+
+      .content [id] {
+        scroll-margin-top: calc(var(--header-height) + 1rem);
+      }
+
+      /* Right TOC Sidebar */
+      .toc-sidebar {
+        width: var(--toc-width);
+        padding: 1.5rem 1rem;
+        position: sticky;
+        top: var(--header-height);
+        height: calc(100vh - var(--header-height));
+        overflow-y: auto;
+        flex-shrink: 0;
+      }
+
+      .toc-title {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--color-text-muted);
+        margin-bottom: 0.75rem;
+      }
+
+      .toc-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      .toc-item {
+        margin: 0.25rem 0;
+      }
+
+      .toc-link {
+        display: block;
+        padding: 0.2rem 0;
+        color: var(--color-text-muted);
+        font-size: 0.8rem;
+        line-height: 1.4;
+        border-left: 2px solid transparent;
+        padding-left: 0.75rem;
+        margin-left: -0.75rem;
+      }
+
+      .toc-link:hover {
+        color: var(--color-text);
+        text-decoration: none;
+      }
+
+      .toc-link.active {
+        color: var(--color-link);
+        border-left-color: var(--color-link);
+      }
+
+      .toc-level-3 {
+        padding-left: calc(0.75rem + 0.75rem);
+      }
+      .toc-level-4 {
+        padding-left: calc(0.75rem + 1.5rem);
+      }
+      .toc-level-5 {
+        padding-left: calc(0.75rem + 2.25rem);
+      }
+      .toc-level-6 {
+        padding-left: calc(0.75rem + 3rem);
+      }
+
+      /* Mobile TOC (above content) */
+      .toc-mobile {
+        display: none;
+        border-bottom: 1px solid var(--color-border);
+        padding: 1rem;
+        background: var(--color-code-bg);
+      }
+
+      .toc-mobile-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        color: var(--color-text);
+        font-size: 0.875rem;
+        font-weight: 500;
+      }
+
+      .toc-mobile-toggle svg {
+        width: 16px;
+        height: 16px;
+        transition: transform 0.2s;
+      }
+
+      .toc-mobile.open .toc-mobile-toggle svg {
+        transform: rotate(180deg);
+      }
+
+      .toc-mobile-content {
+        display: none;
+        padding-top: 0.75rem;
+      }
+
+      .toc-mobile.open .toc-mobile-content {
+        display: block;
+      }
+
+      /* Navigation */
+      .nav-section {
+        margin-bottom: 1.25rem;
+      }
+
+      .nav-section-title {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--color-text-muted);
+        margin-bottom: 0.5rem;
+        padding: 0 0.5rem;
+      }
+
+      .nav-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      .nav-item {
+        margin: 0.125rem 0;
+      }
+
+      .nav-link {
+        display: block;
+        padding: 0.3rem 0.5rem;
+        border-radius: 4px;
+        color: var(--color-text);
+        font-size: 0.875rem;
+      }
+
+      .nav-link:hover {
+        background: var(--color-code-bg);
+        text-decoration: none;
+      }
+
+      .nav-link.active {
+        background: var(--color-code-bg);
+        font-weight: 500;
+        color: var(--color-link);
+      }
+
+      /* Header anchor (permalink) */
+      .header-anchor {
+        opacity: 0;
+        margin-left: 0.5em;
+        color: var(--color-text-muted);
+        text-decoration: none;
+        font-weight: 400;
+      }
+
+      .content h1:hover .header-anchor,
+      .content h2:hover .header-anchor,
+      .content h3:hover .header-anchor,
+      .content h4:hover .header-anchor,
+      .content h5:hover .header-anchor,
+      .content h6:hover .header-anchor {
+        opacity: 1;
+      }
+
+      .header-anchor:hover {
+        color: var(--color-link);
+        text-decoration: none;
+      }
+
+      /* Content styles */
+      .content h1 {
+        font-size: 2rem;
+        margin-top: 0;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid var(--color-border);
+        padding-bottom: 0.5rem;
+      }
+
+      .content h2 {
+        font-size: 1.5rem;
+        margin-top: 2rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .content h3 {
+        font-size: 1.25rem;
+        margin-top: 1.5rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .content h4 {
+        font-size: 1.1rem;
+        margin-top: 1.25rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .content p {
+        margin: 1rem 0;
+      }
+
+      .content pre {
+        background: var(--color-code-bg);
+        padding: 1rem;
+        border-radius: 6px;
+        overflow-x: auto;
+        font-size: 0.875rem;
+        line-height: 1.5;
+      }
+
+      .content code {
+        font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas,
+          monospace;
+        font-size: 0.875em;
+      }
+
+      .content :not(pre) > code {
+        background: var(--color-code-bg);
+        padding: 0.2em 0.4em;
+        border-radius: 3px;
+      }
+
+      .content ul,
+      .content ol {
+        padding-left: 1.5rem;
+      }
+
+      .content li {
+        margin: 0.5rem 0;
+      }
+
+      .content blockquote {
+        border-left: 4px solid var(--color-border);
+        margin: 1rem 0;
+        padding-left: 1rem;
+        color: var(--color-text-muted);
+      }
+
+      .content table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 1rem 0;
+      }
+
+      .content th,
+      .content td {
+        border: 1px solid var(--color-border);
+        padding: 0.5rem 0.75rem;
+        text-align: left;
+      }
+
+      .content th {
+        background: var(--color-code-bg);
+        font-weight: 600;
+      }
+
+      .content img {
+        max-width: 100%;
+        height: auto;
+      }
+
+      /* Responsive: Tablet - hide TOC sidebar, show mobile TOC */
+      @media (max-width: 1100px) {
+        .toc-sidebar {
+          display: none;
         }
 
-        [data-theme="dark"] {
-            --color-bg: #0d1117;
-            --color-text: #e6edf3;
-            --color-text-muted: #8b949e;
-            --color-border: #30363d;
-            --color-code-bg: #161b22;
-            --color-link: #58a6ff;
-            --color-link-hover: #79b8ff;
+        .toc-mobile {
+          display: block;
         }
+      }
 
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            font-size: 16px;
-            line-height: 1.6;
-            color: var(--color-text);
-            background: var(--color-bg);
-            margin: 0;
-            padding: 0;
-        }
-
-        a {
-            color: var(--color-link);
-            text-decoration: none;
-        }
-
-        a:hover {
-            color: var(--color-link-hover);
-            text-decoration: underline;
-        }
-
-        /* Layout */
-        .site-header {
-            border-bottom: 1px solid var(--color-border);
-            padding: 0 1.5rem;
-            height: var(--header-height);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            position: sticky;
-            top: 0;
-            background: var(--color-bg);
-            z-index: 100;
-        }
-
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
+      /* Responsive: Mobile - sidebar becomes slideout */
+      @media (max-width: 768px) {
         .menu-toggle {
-            display: none;
-            background: none;
-            border: none;
-            padding: 0.5rem;
-            cursor: pointer;
-            color: var(--color-text);
+          display: flex;
         }
 
-        .menu-toggle svg {
-            width: 24px;
-            height: 24px;
-            display: block;
-        }
-
-        .site-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--color-text);
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-        }
-
-        .site-title:hover {
-            text-decoration: none;
-        }
-
-        .site-logo {
-            height: 28px;
-            width: auto;
-        }
-
-        .site-logo-light {
-            display: block;
-        }
-
-        .site-logo-dark {
-            display: none;
-        }
-
-        [data-theme="dark"] .site-logo-light {
-            display: none;
-        }
-
-        [data-theme="dark"] .site-logo-dark {
-            display: block;
-        }
-
-        .header-controls {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        /* Search */
         .search-button {
-            background: none;
-            border: 1px solid var(--color-border);
-            border-radius: 6px;
-            padding: 0.4rem 0.75rem;
-            cursor: pointer;
-            color: var(--color-text-muted);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.875rem;
-            transition: border-color 0.2s, color 0.2s;
-            min-width: 160px;
+          min-width: auto;
         }
 
-        .search-button:hover {
-            border-color: var(--color-text-muted);
-            color: var(--color-text);
-        }
-
-        .search-button svg {
-            width: 16px;
-            height: 16px;
-            flex-shrink: 0;
-        }
-
-        .search-button span {
-            flex: 1;
-            text-align: left;
-        }
-
+        .search-button span,
         .search-button kbd {
-            font-family: inherit;
-            font-size: 0.75rem;
-            background: var(--color-code-bg);
-            padding: 0.15rem 0.4rem;
-            border-radius: 4px;
-            border: 1px solid var(--color-border);
+          display: none;
         }
 
-        .theme-toggle {
-            background: none;
-            border: 1px solid var(--color-border);
-            border-radius: 6px;
-            padding: 0.4rem 0.5rem;
-            cursor: pointer;
-            color: var(--color-text-muted);
-            display: flex;
-            align-items: center;
-            transition: border-color 0.2s, color 0.2s;
-        }
-
-        .theme-toggle:hover {
-            border-color: var(--color-text-muted);
-            color: var(--color-text);
-        }
-
-        .theme-toggle svg {
-            width: 16px;
-            height: 16px;
-        }
-
-        .theme-toggle .theme-label {
-            display: none;
-        }
-
-        .main-wrapper {
-            display: flex;
-            min-height: calc(100vh - var(--header-height));
-        }
-
-        /* Left Sidebar */
         .sidebar {
-            width: var(--sidebar-width);
-            border-right: 1px solid var(--color-border);
-            padding: 1.5rem 1rem;
-            position: sticky;
-            top: var(--header-height);
-            height: calc(100vh - var(--header-height));
-            overflow-y: auto;
-            flex-shrink: 0;
+          position: fixed;
+          top: var(--header-height);
+          left: 0;
+          bottom: 0;
+          height: auto;
+          z-index: 95;
+          background: var(--color-bg);
+          transform: translateX(-100%);
+          transition: transform 0.3s ease;
         }
 
-        .sidebar-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            top: var(--header-height);
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 90;
+        .sidebar.open {
+          transform: translateX(0);
         }
 
-        /* Content Area */
-        .content-wrapper {
-            flex: 1;
-            min-width: 0;
-            display: flex;
+        .sidebar-overlay.open {
+          display: block;
         }
 
         .content {
-            flex: 1;
-            min-width: 0;
-            max-width: 800px;
-            padding: 2rem;
+          padding: 1.5rem 1rem;
         }
 
-        /* Right TOC Sidebar */
-        .toc-sidebar {
-            width: var(--toc-width);
-            padding: 1.5rem 1rem;
-            position: sticky;
-            top: var(--header-height);
-            height: calc(100vh - var(--header-height));
-            overflow-y: auto;
-            flex-shrink: 0;
-        }
-
-        .toc-title {
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--color-text-muted);
-            margin-bottom: 0.75rem;
-        }
-
-        .toc-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .toc-item {
-            margin: 0.25rem 0;
-        }
-
-        .toc-link {
-            display: block;
-            padding: 0.2rem 0;
-            color: var(--color-text-muted);
-            font-size: 0.8rem;
-            line-height: 1.4;
-            border-left: 2px solid transparent;
-            padding-left: 0.75rem;
-            margin-left: -0.75rem;
-        }
-
-        .toc-link:hover {
-            color: var(--color-text);
-            text-decoration: none;
-        }
-
-        .toc-link.active {
-            color: var(--color-link);
-            border-left-color: var(--color-link);
-        }
-
-        .toc-level-3 { padding-left: calc(0.75rem + 0.75rem); }
-        .toc-level-4 { padding-left: calc(0.75rem + 1.5rem); }
-        .toc-level-5 { padding-left: calc(0.75rem + 2.25rem); }
-        .toc-level-6 { padding-left: calc(0.75rem + 3rem); }
-
-        /* Mobile TOC (above content) */
-        .toc-mobile {
-            display: none;
-            border-bottom: 1px solid var(--color-border);
-            padding: 1rem;
-            background: var(--color-code-bg);
-        }
-
-        .toc-mobile-toggle {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-            background: none;
-            border: none;
-            padding: 0;
-            cursor: pointer;
-            color: var(--color-text);
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .toc-mobile-toggle svg {
-            width: 16px;
-            height: 16px;
-            transition: transform 0.2s;
-        }
-
-        .toc-mobile.open .toc-mobile-toggle svg {
-            transform: rotate(180deg);
-        }
-
-        .toc-mobile-content {
-            display: none;
-            padding-top: 0.75rem;
-        }
-
-        .toc-mobile.open .toc-mobile-content {
-            display: block;
-        }
-
-        /* Navigation */
-        .nav-section {
-            margin-bottom: 1.25rem;
-        }
-
-        .nav-section-title {
-            font-size: 0.7rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--color-text-muted);
-            margin-bottom: 0.5rem;
-            padding: 0 0.5rem;
-        }
-
-        .nav-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .nav-item {
-            margin: 0.125rem 0;
-        }
-
-        .nav-link {
-            display: block;
-            padding: 0.3rem 0.5rem;
-            border-radius: 4px;
-            color: var(--color-text);
-            font-size: 0.875rem;
-        }
-
-        .nav-link:hover {
-            background: var(--color-code-bg);
-            text-decoration: none;
-        }
-
-        .nav-link.active {
-            background: var(--color-code-bg);
-            font-weight: 500;
-            color: var(--color-link);
-        }
-
-        /* Header anchor (permalink) */
-        .header-anchor {
-            opacity: 0;
-            margin-left: 0.5em;
-            color: var(--color-text-muted);
-            text-decoration: none;
-            font-weight: 400;
-        }
-
-        .content h1:hover .header-anchor,
-        .content h2:hover .header-anchor,
-        .content h3:hover .header-anchor,
-        .content h4:hover .header-anchor,
-        .content h5:hover .header-anchor,
-        .content h6:hover .header-anchor {
-            opacity: 1;
-        }
-
-        .header-anchor:hover {
-            color: var(--color-link);
-            text-decoration: none;
-        }
-
-        /* Content styles */
         .content h1 {
-            font-size: 2rem;
-            margin-top: 0;
-            margin-bottom: 1rem;
-            border-bottom: 1px solid var(--color-border);
-            padding-bottom: 0.5rem;
+          font-size: 1.75rem;
         }
 
         .content h2 {
-            font-size: 1.5rem;
-            margin-top: 2rem;
-            margin-bottom: 0.75rem;
+          font-size: 1.35rem;
         }
+      }
 
-        .content h3 {
-            font-size: 1.25rem;
-            margin-top: 1.5rem;
-            margin-bottom: 0.5rem;
-        }
+      /* Syntax highlighting (autumnus/tree-sitter) */
+      pre.athl {
+        background: #24292e;
+        color: #e1e4e8;
+        padding: 1rem;
+        border-radius: 6px;
+        overflow-x: auto;
+      }
 
-        .content h4 {
-            font-size: 1.1rem;
-            margin-top: 1.25rem;
-            margin-bottom: 0.5rem;
-        }
+      pre.athl code {
+        background: transparent;
+        padding: 0;
+      }
 
-        .content p {
-            margin: 1rem 0;
-        }
+      pre.athl .line {
+        display: block;
+        min-height: 1.5em;
+      }
 
-        .content pre {
-            background: var(--color-code-bg);
-            padding: 1rem;
-            border-radius: 6px;
-            overflow-x: auto;
-            font-size: 0.875rem;
-            line-height: 1.5;
-        }
+      /* Keywords */
+      pre.athl .keyword {
+        color: #f97583;
+      }
+      pre.athl .keyword-function {
+        color: #f97583;
+      }
+      pre.athl .keyword-exception {
+        color: #f97583;
+      }
+      pre.athl .keyword-control {
+        color: #f97583;
+      }
+      pre.athl .keyword-operator {
+        color: #f97583;
+      }
+      pre.athl .keyword-type {
+        color: #f97583;
+      }
 
-        .content code {
-            font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace;
-            font-size: 0.875em;
-        }
+      /* Strings */
+      pre.athl .string {
+        color: #9ecbff;
+      }
+      pre.athl .string-special {
+        color: #85e89d;
+      }
 
-        .content :not(pre) > code {
-            background: var(--color-code-bg);
-            padding: 0.2em 0.4em;
-            border-radius: 3px;
-        }
+      /* Comments */
+      pre.athl .comment {
+        color: #6a737d;
+        font-style: italic;
+      }
 
-        .content ul, .content ol {
-            padding-left: 1.5rem;
-        }
+      /* Functions */
+      pre.athl .function {
+        color: #b392f0;
+      }
+      pre.athl .function-call {
+        color: #b392f0;
+      }
+      pre.athl .function-method {
+        color: #b392f0;
+      }
+      pre.athl .function-method-call {
+        color: #b392f0;
+      }
+      pre.athl .function-builtin {
+        color: #b392f0;
+      }
+      pre.athl .function-macro {
+        color: #b392f0;
+      }
 
-        .content li {
-            margin: 0.5rem 0;
-        }
+      /* Types */
+      pre.athl .type {
+        color: #79b8ff;
+      }
+      pre.athl .type-builtin {
+        color: #79b8ff;
+      }
 
-        .content blockquote {
-            border-left: 4px solid var(--color-border);
-            margin: 1rem 0;
-            padding-left: 1rem;
-            color: var(--color-text-muted);
-        }
+      /* Variables */
+      pre.athl .variable {
+        color: #e1e4e8;
+      }
+      pre.athl .variable-builtin {
+        color: #79b8ff;
+      }
+      pre.athl .variable-parameter {
+        color: #ffab70;
+      }
 
-        .content table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 1rem 0;
-        }
+      /* Constants */
+      pre.athl .constant {
+        color: #79b8ff;
+      }
+      pre.athl .constant-builtin {
+        color: #79b8ff;
+      }
+      pre.athl .number {
+        color: #79b8ff;
+      }
 
-        .content th, .content td {
-            border: 1px solid var(--color-border);
-            padding: 0.5rem 0.75rem;
-            text-align: left;
-        }
+      /* Operators & Punctuation */
+      pre.athl .operator {
+        color: #f97583;
+      }
+      pre.athl .punctuation {
+        color: #e1e4e8;
+      }
+      pre.athl .punctuation-bracket {
+        color: #e1e4e8;
+      }
+      pre.athl .punctuation-delimiter {
+        color: #e1e4e8;
+      }
+      pre.athl .punctuation-special {
+        color: #79b8ff;
+      }
 
-        .content th {
-            background: var(--color-code-bg);
-            font-weight: 600;
-        }
+      /* Properties & Attributes */
+      pre.athl .property {
+        color: #79b8ff;
+      }
+      pre.athl .attribute {
+        color: #b392f0;
+      }
 
-        .content img {
-            max-width: 100%;
-            height: auto;
-        }
+      /* Tags (HTML/XML) */
+      pre.athl .tag {
+        color: #85e89d;
+      }
 
-        /* Responsive: Tablet - hide TOC sidebar, show mobile TOC */
-        @media (max-width: 1100px) {
-            .toc-sidebar {
-                display: none;
-            }
-
-            .toc-mobile {
-                display: block;
-            }
-        }
-
-        /* Responsive: Mobile - sidebar becomes slideout */
-        @media (max-width: 768px) {
-            .menu-toggle {
-                display: flex;
-            }
-
-            .search-button {
-                min-width: auto;
-            }
-
-            .search-button span,
-            .search-button kbd {
-                display: none;
-            }
-
-            .sidebar {
-                position: fixed;
-                top: var(--header-height);
-                left: 0;
-                bottom: 0;
-                height: auto;
-                z-index: 95;
-                background: var(--color-bg);
-                transform: translateX(-100%);
-                transition: transform 0.3s ease;
-            }
-
-            .sidebar.open {
-                transform: translateX(0);
-            }
-
-            .sidebar-overlay.open {
-                display: block;
-            }
-
-            .content {
-                padding: 1.5rem 1rem;
-            }
-
-            .content h1 {
-                font-size: 1.75rem;
-            }
-
-            .content h2 {
-                font-size: 1.35rem;
-            }
-        }
-
-        /* Syntax highlighting (autumnus/tree-sitter) */
-        pre.athl {
-            background: #24292e;
-            color: #e1e4e8;
-            padding: 1rem;
-            border-radius: 6px;
-            overflow-x: auto;
-        }
-
-        pre.athl code {
-            background: transparent;
-            padding: 0;
-        }
-
-        pre.athl .line {
-            display: block;
-            min-height: 1.5em;
-        }
-
-        /* Keywords */
-        pre.athl .keyword { color: #f97583; }
-        pre.athl .keyword-function { color: #f97583; }
-        pre.athl .keyword-exception { color: #f97583; }
-        pre.athl .keyword-control { color: #f97583; }
-        pre.athl .keyword-operator { color: #f97583; }
-        pre.athl .keyword-type { color: #f97583; }
-
-        /* Strings */
-        pre.athl .string { color: #9ecbff; }
-        pre.athl .string-special { color: #85e89d; }
-
-        /* Comments */
-        pre.athl .comment { color: #6a737d; font-style: italic; }
-
-        /* Functions */
-        pre.athl .function { color: #b392f0; }
-        pre.athl .function-call { color: #b392f0; }
-        pre.athl .function-method { color: #b392f0; }
-        pre.athl .function-method-call { color: #b392f0; }
-        pre.athl .function-builtin { color: #b392f0; }
-        pre.athl .function-macro { color: #b392f0; }
-
-        /* Types */
-        pre.athl .type { color: #79b8ff; }
-        pre.athl .type-builtin { color: #79b8ff; }
-
-        /* Variables */
-        pre.athl .variable { color: #e1e4e8; }
-        pre.athl .variable-builtin { color: #79b8ff; }
-        pre.athl .variable-parameter { color: #ffab70; }
-
-        /* Constants */
-        pre.athl .constant { color: #79b8ff; }
-        pre.athl .constant-builtin { color: #79b8ff; }
-        pre.athl .number { color: #79b8ff; }
-
-        /* Operators & Punctuation */
-        pre.athl .operator { color: #f97583; }
-        pre.athl .punctuation { color: #e1e4e8; }
-        pre.athl .punctuation-bracket { color: #e1e4e8; }
-        pre.athl .punctuation-delimiter { color: #e1e4e8; }
-        pre.athl .punctuation-special { color: #79b8ff; }
-
-        /* Properties & Attributes */
-        pre.athl .property { color: #79b8ff; }
-        pre.athl .attribute { color: #b392f0; }
-
-        /* Tags (HTML/XML) */
-        pre.athl .tag { color: #85e89d; }
-
-        /* Misc */
-        pre.athl .escape { color: #79b8ff; }
-        pre.athl .constructor { color: #b392f0; }
-        pre.athl .embedded { color: #e1e4e8; }
+      /* Misc */
+      pre.athl .escape {
+        color: #79b8ff;
+      }
+      pre.athl .constructor {
+        color: #b392f0;
+      }
+      pre.athl .embedded {
+        color: #e1e4e8;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <header class="site-header">
-        <div class="header-left">
-            <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-            </button>
-            <a href="/" class="site-title">
-                {% if theme.logo %}
-                    {% if theme.logo.light and theme.logo.dark %}
-                        <img src="{{ theme.logo.light | replace(from='./', to='/') }}" alt="{{ site.name }}" class="site-logo site-logo-light">
-                        <img src="{{ theme.logo.dark | replace(from='./', to='/') }}" alt="{{ site.name }}" class="site-logo site-logo-dark">
-                    {% elif theme.logo.light %}
-                        <img src="{{ theme.logo.light | replace(from='./', to='/') }}" alt="{{ site.name }}" class="site-logo">
-                    {% elif theme.logo.dark %}
-                        <img src="{{ theme.logo.dark | replace(from='./', to='/') }}" alt="{{ site.name }}" class="site-logo">
-                    {% else %}
-                        {{ site.name }}
-                    {% endif %}
-                {% else %}
-                    {{ site.name }}
-                {% endif %}
-            </a>
-        </div>
-        <div class="header-controls">
-            {% block header_right %}{% endblock %}
-            <button class="search-button" id="search-button" aria-label="Search">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <span>Search...</span>
-                <kbd>/</kbd>
-            </button>
-            <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
-                <svg class="icon-system" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                <svg class="icon-light" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-                <svg class="icon-dark" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-                <span class="theme-label">System</span>
-            </button>
-        </div>
+      <div class="header-left">
+        <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 6h16M4 12h16M4 18h16"
+            />
+          </svg>
+        </button>
+        <a href="/" class="site-title">
+          {% if theme.logo %} {% if theme.logo.light and theme.logo.dark %}
+          <img
+            src="{{ theme.logo.light | replace(from='./', to='/') }}"
+            alt="{{ site.name }}"
+            class="site-logo site-logo-light"
+          />
+          <img
+            src="{{ theme.logo.dark | replace(from='./', to='/') }}"
+            alt="{{ site.name }}"
+            class="site-logo site-logo-dark"
+          />
+          {% elif theme.logo.light %}
+          <img
+            src="{{ theme.logo.light | replace(from='./', to='/') }}"
+            alt="{{ site.name }}"
+            class="site-logo"
+          />
+          {% elif theme.logo.dark %}
+          <img
+            src="{{ theme.logo.dark | replace(from='./', to='/') }}"
+            alt="{{ site.name }}"
+            class="site-logo"
+          />
+          {% else %} {{ site.name }} {% endif %} {% else %} {{ site.name }} {%
+          endif %}
+        </a>
+      </div>
+      <div class="header-controls">
+        {% block header_right %}{% endblock %}
+        <button class="search-button" id="search-button" aria-label="Search">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+          <span>Search...</span>
+          <kbd>/</kbd>
+        </button>
+        <button
+          class="theme-toggle"
+          id="theme-toggle"
+          aria-label="Toggle theme"
+        >
+          <svg
+            class="icon-system"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+            />
+          </svg>
+          <svg
+            class="icon-light"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+            />
+          </svg>
+          <svg
+            class="icon-dark"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+            />
+          </svg>
+          <span class="theme-label">System</span>
+        </button>
+      </div>
     </header>
 
     <div class="main-wrapper">
-        <div class="sidebar-overlay" id="sidebar-overlay"></div>
+      <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
-        {% block sidebar %}
-        <nav class="sidebar" id="sidebar">
-            {% for item in nav %}
-                {% if item.section %}
-                <div class="nav-section">
-                    <div class="nav-section-title">{{ item.section }}</div>
-                    <ul class="nav-list">
-                        {% for child in item.items %}
-                        <li class="nav-item">
-                            <a href="{{ child.url }}" class="nav-link{% if child.url == page.url %} active{% endif %}">
-                                {{ child.title }}
-                            </a>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                {% else %}
-                <div class="nav-section">
-                    <ul class="nav-list">
-                        <li class="nav-item">
-                            <a href="{{ item.url }}" class="nav-link{% if item.url == page.url %} active{% endif %}">
-                                {{ item.title }}
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-                {% endif %}
+      {% block sidebar %}
+      <nav class="sidebar" id="sidebar">
+        {% for item in nav %} {% if item.section %}
+        <div class="nav-section">
+          <div class="nav-section-title">{{ item.section }}</div>
+          <ul class="nav-list">
+            {% for child in item.items %}
+            <li class="nav-item">
+              <a
+                href="{{ child.url }}"
+                class="nav-link{% if child.url == page.url %} active{% endif %}"
+              >
+                {{ child.title }}
+              </a>
+            </li>
             {% endfor %}
-        </nav>
-        {% endblock %}
-
-        <div class="content-wrapper">
-            <main class="content">
-                {% if toc | length > 1 %}
-                <div class="toc-mobile" id="toc-mobile">
-                    <button class="toc-mobile-toggle" id="toc-mobile-toggle">
-                        <span>On this page</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </button>
-                    <div class="toc-mobile-content">
-                        <ul class="toc-list">
-                            {% for entry in toc %}
-                            <li class="toc-item">
-                                <a href="#{{ entry.id }}" class="toc-link toc-level-{{ entry.level }}">{{ entry.text }}</a>
-                            </li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                </div>
-                {% endif %}
-
-                {% block content %}{% endblock %}
-            </main>
-
-            {% if toc | length > 1 %}
-            <aside class="toc-sidebar">
-                <div class="toc-title">On this page</div>
-                <nav>
-                    <ul class="toc-list">
-                        {% for entry in toc %}
-                        <li class="toc-item">
-                            <a href="#{{ entry.id }}" class="toc-link toc-level-{{ entry.level }}">{{ entry.text }}</a>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </nav>
-            </aside>
-            {% endif %}
+          </ul>
         </div>
+        {% else %}
+        <div class="nav-section">
+          <ul class="nav-list">
+            <li class="nav-item">
+              <a
+                href="{{ item.url }}"
+                class="nav-link{% if item.url == page.url %} active{% endif %}"
+              >
+                {{ item.title }}
+              </a>
+            </li>
+          </ul>
+        </div>
+        {% endif %} {% endfor %}
+      </nav>
+      {% endblock %}
+
+      <div class="content-wrapper">
+        <main class="content">
+          {% if toc | length > 1 %}
+          <div class="toc-mobile" id="toc-mobile">
+            <button class="toc-mobile-toggle" id="toc-mobile-toggle">
+              <span>On this page</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+            <div class="toc-mobile-content">
+              <ul class="toc-list">
+                {% for entry in toc %}
+                <li class="toc-item">
+                  <a
+                    href="#{{ entry.id }}"
+                    class="toc-link toc-level-{{ entry.level }}"
+                    >{{ entry.text }}</a
+                  >
+                </li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+          {% endif %} {% block content %}{% endblock %}
+        </main>
+
+        {% if toc | length > 1 %}
+        <aside class="toc-sidebar">
+          <div class="toc-title">On this page</div>
+          <nav>
+            <ul class="toc-list">
+              {% for entry in toc %}
+              <li class="toc-item">
+                <a
+                  href="#{{ entry.id }}"
+                  class="toc-link toc-level-{{ entry.level }}"
+                  >{{ entry.text }}</a
+                >
+              </li>
+              {% endfor %}
+            </ul>
+          </nav>
+        </aside>
+        {% endif %}
+      </div>
     </div>
 
     <script>
-        // Theme toggle
-        (function() {
-            const toggle = document.getElementById('theme-toggle');
-            const label = toggle.querySelector('.theme-label');
-            const html = document.documentElement;
-            const modes = ['system', 'light', 'dark'];
+      // Theme toggle
+      (function () {
+        const toggle = document.getElementById("theme-toggle");
+        const label = toggle.querySelector(".theme-label");
+        const html = document.documentElement;
+        const modes = ["system", "light", "dark"];
 
-            function getSystemTheme() {
-                return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        function getSystemTheme() {
+          return window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light";
+        }
+
+        function applyTheme(setting) {
+          const effectiveTheme =
+            setting === "system" ? getSystemTheme() : setting;
+
+          if (effectiveTheme === "dark") {
+            html.setAttribute("data-theme", "dark");
+          } else {
+            html.removeAttribute("data-theme");
+          }
+
+          html.setAttribute("data-theme-setting", setting);
+          label.textContent =
+            setting.charAt(0).toUpperCase() + setting.slice(1);
+
+          // Show the correct icon
+          toggle.querySelector(".icon-system").style.display =
+            setting === "system" ? "block" : "none";
+          toggle.querySelector(".icon-light").style.display =
+            setting === "light" ? "block" : "none";
+          toggle.querySelector(".icon-dark").style.display =
+            setting === "dark" ? "block" : "none";
+        }
+
+        function cycleSetting() {
+          const current = localStorage.getItem("theme") || "system";
+          const nextIndex = (modes.indexOf(current) + 1) % modes.length;
+          const next = modes[nextIndex];
+          localStorage.setItem("theme", next);
+          applyTheme(next);
+        }
+
+        // Initialize
+        const stored = localStorage.getItem("theme") || "system";
+        applyTheme(stored);
+
+        // Handle toggle click
+        toggle.addEventListener("click", cycleSetting);
+
+        // Listen for system theme changes
+        window
+          .matchMedia("(prefers-color-scheme: dark)")
+          .addEventListener("change", () => {
+            const setting = localStorage.getItem("theme") || "system";
+            if (setting === "system") {
+              applyTheme("system");
             }
+          });
+      })();
 
-            function applyTheme(setting) {
-                const effectiveTheme = setting === 'system' ? getSystemTheme() : setting;
+      // Mobile sidebar toggle
+      (function () {
+        const menuToggle = document.getElementById("menu-toggle");
+        const sidebar = document.getElementById("sidebar");
+        const overlay = document.getElementById("sidebar-overlay");
 
-                if (effectiveTheme === 'dark') {
-                    html.setAttribute('data-theme', 'dark');
-                } else {
-                    html.removeAttribute('data-theme');
-                }
+        function openSidebar() {
+          sidebar.classList.add("open");
+          overlay.classList.add("open");
+          document.body.style.overflow = "hidden";
+        }
 
-                html.setAttribute('data-theme-setting', setting);
-                label.textContent = setting.charAt(0).toUpperCase() + setting.slice(1);
+        function closeSidebar() {
+          sidebar.classList.remove("open");
+          overlay.classList.remove("open");
+          document.body.style.overflow = "";
+        }
 
-                // Show the correct icon
-                toggle.querySelector('.icon-system').style.display = setting === 'system' ? 'block' : 'none';
-                toggle.querySelector('.icon-light').style.display = setting === 'light' ? 'block' : 'none';
-                toggle.querySelector('.icon-dark').style.display = setting === 'dark' ? 'block' : 'none';
+        menuToggle.addEventListener("click", () => {
+          if (sidebar.classList.contains("open")) {
+            closeSidebar();
+          } else {
+            openSidebar();
+          }
+        });
+
+        overlay.addEventListener("click", closeSidebar);
+
+        // Close on escape
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape" && sidebar.classList.contains("open")) {
+            closeSidebar();
+          }
+        });
+
+        // Close when clicking a nav link (on mobile)
+        sidebar.querySelectorAll(".nav-link").forEach((link) => {
+          link.addEventListener("click", () => {
+            if (window.innerWidth <= 768) {
+              closeSidebar();
             }
+          });
+        });
+      })();
 
-            function cycleSetting() {
-                const current = localStorage.getItem('theme') || 'system';
-                const nextIndex = (modes.indexOf(current) + 1) % modes.length;
-                const next = modes[nextIndex];
-                localStorage.setItem('theme', next);
-                applyTheme(next);
-            }
+      // Mobile TOC toggle
+      (function () {
+        const tocMobile = document.getElementById("toc-mobile");
+        const tocToggle = document.getElementById("toc-mobile-toggle");
 
-            // Initialize
-            const stored = localStorage.getItem('theme') || 'system';
-            applyTheme(stored);
+        if (tocMobile && tocToggle) {
+          tocToggle.addEventListener("click", () => {
+            tocMobile.classList.toggle("open");
+          });
 
-            // Handle toggle click
-            toggle.addEventListener('click', cycleSetting);
-
-            // Listen for system theme changes
-            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-                const setting = localStorage.getItem('theme') || 'system';
-                if (setting === 'system') {
-                    applyTheme('system');
-                }
+          // Close when clicking a TOC link
+          tocMobile.querySelectorAll(".toc-link").forEach((link) => {
+            link.addEventListener("click", () => {
+              tocMobile.classList.remove("open");
             });
-        })();
+          });
+        }
+      })();
 
-        // Mobile sidebar toggle
-        (function() {
-            const menuToggle = document.getElementById('menu-toggle');
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebar-overlay');
+      // TOC scroll spy
+      (function () {
+        const tocLinks = document.querySelectorAll(".toc-link");
+        if (tocLinks.length === 0) return;
 
-            function openSidebar() {
-                sidebar.classList.add('open');
-                overlay.classList.add('open');
-                document.body.style.overflow = 'hidden';
+        const headings = [];
+        tocLinks.forEach((link) => {
+          const id = link.getAttribute("href").slice(1);
+          const heading = document.getElementById(id);
+          if (heading) headings.push({ id, element: heading });
+        });
+
+        function updateActiveLink() {
+          const scrollPos = window.scrollY + 100;
+
+          let activeId = headings[0]?.id;
+          for (const { id, element } of headings) {
+            if (element.offsetTop <= scrollPos) {
+              activeId = id;
             }
+          }
 
-            function closeSidebar() {
-                sidebar.classList.remove('open');
-                overlay.classList.remove('open');
-                document.body.style.overflow = '';
-            }
+          tocLinks.forEach((link) => {
+            const linkId = link.getAttribute("href").slice(1);
+            link.classList.toggle("active", linkId === activeId);
+          });
+        }
 
-            menuToggle.addEventListener('click', () => {
-                if (sidebar.classList.contains('open')) {
-                    closeSidebar();
-                } else {
-                    openSidebar();
-                }
-            });
-
-            overlay.addEventListener('click', closeSidebar);
-
-            // Close on escape
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape' && sidebar.classList.contains('open')) {
-                    closeSidebar();
-                }
-            });
-
-            // Close when clicking a nav link (on mobile)
-            sidebar.querySelectorAll('.nav-link').forEach(link => {
-                link.addEventListener('click', () => {
-                    if (window.innerWidth <= 768) {
-                        closeSidebar();
-                    }
-                });
-            });
-        })();
-
-        // Mobile TOC toggle
-        (function() {
-            const tocMobile = document.getElementById('toc-mobile');
-            const tocToggle = document.getElementById('toc-mobile-toggle');
-
-            if (tocMobile && tocToggle) {
-                tocToggle.addEventListener('click', () => {
-                    tocMobile.classList.toggle('open');
-                });
-
-                // Close when clicking a TOC link
-                tocMobile.querySelectorAll('.toc-link').forEach(link => {
-                    link.addEventListener('click', () => {
-                        tocMobile.classList.remove('open');
-                    });
-                });
-            }
-        })();
-
-        // TOC scroll spy
-        (function() {
-            const tocLinks = document.querySelectorAll('.toc-link');
-            if (tocLinks.length === 0) return;
-
-            const headings = [];
-            tocLinks.forEach(link => {
-                const id = link.getAttribute('href').slice(1);
-                const heading = document.getElementById(id);
-                if (heading) headings.push({ id, element: heading });
-            });
-
-            function updateActiveLink() {
-                const scrollPos = window.scrollY + 100;
-
-                let activeId = headings[0]?.id;
-                for (const { id, element } of headings) {
-                    if (element.offsetTop <= scrollPos) {
-                        activeId = id;
-                    }
-                }
-
-                tocLinks.forEach(link => {
-                    const linkId = link.getAttribute('href').slice(1);
-                    link.classList.toggle('active', linkId === activeId);
-                });
-            }
-
-            window.addEventListener('scroll', updateActiveLink, { passive: true });
-            updateActiveLink();
-        })();
+        window.addEventListener("scroll", updateActiveLink, { passive: true });
+        updateActiveLink();
+      })();
     </script>
 
     <!-- Pagefind Search -->
-    <div id="search-modal" style="display: none;">
-        <div class="search-modal-backdrop"></div>
-        <div class="search-modal-content">
-            <div id="search"></div>
-        </div>
+    <div id="search-modal" style="display: none">
+      <div class="search-modal-backdrop"></div>
+      <div class="search-modal-content">
+        <div id="search"></div>
+      </div>
     </div>
     <style>
-        #search-modal {
-            position: fixed;
-            inset: 0;
-            z-index: 1000;
-        }
-        .search-modal-backdrop {
-            position: absolute;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.5);
-        }
-        .search-modal-content {
-            position: absolute;
-            top: 10%;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 90%;
-            max-width: 600px;
-            max-height: 80vh;
-            background: var(--color-bg);
-            border-radius: 12px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-        /* Pagefind UI customizations */
-        .pagefind-ui {
-            --pagefind-ui-scale: 1;
-            --pagefind-ui-primary: var(--color-link);
-            --pagefind-ui-text: var(--color-text);
-            --pagefind-ui-background: var(--color-bg);
-            --pagefind-ui-border: var(--color-border);
-            --pagefind-ui-tag: var(--color-code-bg);
-            --pagefind-ui-border-width: 1px;
-            --pagefind-ui-border-radius: 6px;
-            --pagefind-ui-font: inherit;
-        }
-        #search {
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            height: 100%;
-            min-height: 0;
-        }
-        .pagefind-ui {
-            padding: 1rem;
-            display: flex !important;
-            flex-direction: column !important;
-            height: 100%;
-            min-height: 0;
-        }
-        .pagefind-ui .pagefind-ui__form {
-            flex: 1 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            min-height: 0 !important;
-        }
-        .pagefind-ui .pagefind-ui__form::before {
-            top: calc(15px * var(--pagefind-ui-scale));
-        }
-        .pagefind-ui .pagefind-ui__search-input {
-            font-size: 1rem;
-            height: calc(48px * var(--pagefind-ui-scale));
-            flex-shrink: 0 !important;
-        }
-        .pagefind-ui .pagefind-ui__search-clear {
-            top: calc(4px * var(--pagefind-ui-scale));
-            height: calc(40px * var(--pagefind-ui-scale));
-        }
-        .pagefind-ui .pagefind-ui__drawer {
-            flex: 1 !important;
-            flex-direction: column !important;
-            overflow-y: auto !important;
-            margin-top: calc(12px * var(--pagefind-ui-scale));
-            min-height: 0 !important;
-        }
-        .pagefind-ui .pagefind-ui__results-area {
-            flex: 1;
-            min-height: 0;
-        }
-        .pagefind-ui .pagefind-ui__results {
-            max-height: 100%;
-        }
-        .pagefind-ui .pagefind-ui__result {
-            border-radius: 8px;
-        }
-        .pagefind-ui .pagefind-ui__result:hover {
-            background: var(--color-code-bg);
-        }
-        .pagefind-ui .pagefind-ui__result-inner {
-            padding: 1rem;
-        }
-        .pagefind-ui .pagefind-ui__result-link {
-            color: var(--color-link);
-        }
-        .pagefind-ui .pagefind-ui__result-excerpt {
-            color: var(--color-text-muted);
-        }
+      #search-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+      }
+      .search-modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+      }
+      .search-modal-content {
+        position: absolute;
+        top: 10%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        max-width: 600px;
+        max-height: 80vh;
+        background: var(--color-bg);
+        border-radius: 12px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      /* Pagefind UI customizations */
+      .pagefind-ui {
+        --pagefind-ui-scale: 1;
+        --pagefind-ui-primary: var(--color-link);
+        --pagefind-ui-text: var(--color-text);
+        --pagefind-ui-background: var(--color-bg);
+        --pagefind-ui-border: var(--color-border);
+        --pagefind-ui-tag: var(--color-code-bg);
+        --pagefind-ui-border-width: 1px;
+        --pagefind-ui-border-radius: 6px;
+        --pagefind-ui-font: inherit;
+      }
+      #search {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        height: 100%;
+        min-height: 0;
+      }
+      .pagefind-ui {
+        padding: 1rem;
+        display: flex !important;
+        flex-direction: column !important;
+        height: 100%;
+        min-height: 0;
+      }
+      .pagefind-ui .pagefind-ui__form {
+        flex: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+      }
+      .pagefind-ui .pagefind-ui__form::before {
+        top: calc(15px * var(--pagefind-ui-scale));
+      }
+      .pagefind-ui .pagefind-ui__search-input {
+        font-size: 1rem;
+        height: calc(48px * var(--pagefind-ui-scale));
+        flex-shrink: 0 !important;
+      }
+      .pagefind-ui .pagefind-ui__search-clear {
+        top: calc(4px * var(--pagefind-ui-scale));
+        height: calc(40px * var(--pagefind-ui-scale));
+      }
+      .pagefind-ui .pagefind-ui__drawer {
+        flex: 1 !important;
+        flex-direction: column !important;
+        overflow-y: auto !important;
+        margin-top: calc(12px * var(--pagefind-ui-scale));
+        min-height: 0 !important;
+      }
+      .pagefind-ui .pagefind-ui__results-area {
+        flex: 1;
+        min-height: 0;
+      }
+      .pagefind-ui .pagefind-ui__results {
+        max-height: 100%;
+      }
+      .pagefind-ui .pagefind-ui__result {
+        border-radius: 8px;
+      }
+      .pagefind-ui .pagefind-ui__result:hover {
+        background: var(--color-code-bg);
+      }
+      .pagefind-ui .pagefind-ui__result-inner {
+        padding: 1rem;
+      }
+      .pagefind-ui .pagefind-ui__result-link {
+        color: var(--color-link);
+      }
+      .pagefind-ui .pagefind-ui__result-excerpt {
+        color: var(--color-text-muted);
+      }
     </style>
     <script src="/_pagefind/pagefind-ui.js"></script>
     <script>
-        (function() {
-            const searchButton = document.getElementById('search-button');
-            const searchModal = document.getElementById('search-modal');
-            const backdrop = searchModal.querySelector('.search-modal-backdrop');
-            let pagefindUI = null;
+      (function () {
+        const searchButton = document.getElementById("search-button");
+        const searchModal = document.getElementById("search-modal");
+        const backdrop = searchModal.querySelector(".search-modal-backdrop");
+        let pagefindUI = null;
 
-            function openSearch() {
-                searchModal.style.display = 'block';
-                document.body.style.overflow = 'hidden';
-                if (!pagefindUI) {
-                    pagefindUI = new PagefindUI({
-                        element: '#search',
-                        showSubResults: true,
-                        showImages: false,
-                    });
-                }
-                setTimeout(() => {
-                    const input = searchModal.querySelector('.pagefind-ui__search-input');
-                    if (input) input.focus();
-                }, 100);
-            }
-
-            function closeSearch() {
-                searchModal.style.display = 'none';
-                document.body.style.overflow = '';
-            }
-
-            searchButton.addEventListener('click', openSearch);
-            backdrop.addEventListener('click', closeSearch);
-
-            document.addEventListener('keydown', (e) => {
-                // Open with / key
-                if (e.key === '/' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT') {
-                    e.preventDefault();
-                    openSearch();
-                }
-                // Close with Escape
-                if (e.key === 'Escape' && searchModal.style.display === 'block') {
-                    closeSearch();
-                }
+        function openSearch() {
+          searchModal.style.display = "block";
+          document.body.style.overflow = "hidden";
+          if (!pagefindUI) {
+            pagefindUI = new PagefindUI({
+              element: "#search",
+              showSubResults: true,
+              showImages: false,
             });
-        })();
+          }
+          setTimeout(() => {
+            const input = searchModal.querySelector(
+              ".pagefind-ui__search-input"
+            );
+            if (input) input.focus();
+          }, 100);
+        }
+
+        function closeSearch() {
+          searchModal.style.display = "none";
+          document.body.style.overflow = "";
+        }
+
+        searchButton.addEventListener("click", openSearch);
+        backdrop.addEventListener("click", closeSearch);
+
+        document.addEventListener("keydown", (e) => {
+          // Open with / key
+          if (
+            e.key === "/" &&
+            !e.ctrlKey &&
+            !e.metaKey &&
+            document.activeElement.tagName !== "INPUT"
+          ) {
+            e.preventDefault();
+            openSearch();
+          }
+          // Close with Escape
+          if (e.key === "Escape" && searchModal.style.display === "block") {
+            closeSearch();
+          }
+        });
+      })();
     </script>
     {% block scripts %}{% endblock %}
-</body>
+  </body>
 </html>
