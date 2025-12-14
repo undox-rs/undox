@@ -10,11 +10,10 @@ use std::time::Duration;
 
 use notify::event::ModifyKind;
 use notify::{
-    Config as NotifyConfig, EventKind, PollWatcher, RecommendedWatcher, RecursiveMode,
-    Watcher,
+    Config as NotifyConfig, EventKind, PollWatcher, RecommendedWatcher, RecursiveMode, Watcher,
 };
 use notify_debouncer_full::{
-    new_debouncer, new_debouncer_opt, DebounceEventResult, Debouncer, FileIdMap,
+    DebounceEventResult, Debouncer, FileIdMap, RecommendedCache, new_debouncer, new_debouncer_opt,
 };
 
 use super::cache::ChangeKind;
@@ -153,12 +152,12 @@ impl PathClassifier {
 pub enum FileWatcher {
     /// Native file system watcher (recommended for local development).
     Native {
-        _debouncer: Debouncer<RecommendedWatcher, FileIdMap>,
+        _debouncer: Debouncer<RecommendedWatcher, RecommendedCache>,
         rx: Receiver<WatchEvent>,
     },
     /// Polling-based watcher (for network filesystems, Docker, etc.).
     Polling {
-        _debouncer: Debouncer<PollWatcher, FileIdMap>,
+        _debouncer: Debouncer<PollWatcher, RecommendedCache>,
         rx: Receiver<WatchEvent>,
     },
 }
@@ -189,7 +188,10 @@ impl FileWatcher {
                                 return None;
                             }
                             // Classify the first path (usually there's only one)
-                            event.paths.first().and_then(|p| classifier.classify(p, deleted))
+                            event
+                                .paths
+                                .first()
+                                .and_then(|p| classifier.classify(p, deleted))
                         })
                         .collect();
 
@@ -227,8 +229,8 @@ impl FileWatcher {
             })
         } else {
             // Use native watcher
-            let mut debouncer = new_debouncer(debounce_timeout, None, callback)
-                .map_err(WatchError::Notify)?;
+            let mut debouncer =
+                new_debouncer(debounce_timeout, None, callback).map_err(WatchError::Notify)?;
 
             add_watch_paths_to_debouncer(&mut debouncer, paths)?;
 
