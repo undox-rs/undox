@@ -12,7 +12,7 @@ theme:
 
 sources:
   - name: docs
-    path: ./content
+    path: ./docs/content
     url_prefix: /
     repo_url: "https://github.com/undox/undox"
     edit_path: "docs/"
