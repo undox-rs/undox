@@ -1,4 +1,4 @@
-use crate::{BuildArgs, build::{Builder, base_path_from_config}, config::Config};
+use crate::{BuildArgs, build::{Builder, base_path_from_config, build_search_index}, config::Config};
 
 pub async fn run(args: &BuildArgs) -> Result<(), anyhow::Error> {
     // Determine the config file path
@@ -40,6 +40,11 @@ pub async fn run(args: &BuildArgs) -> Result<(), anyhow::Error> {
         result.documents,
         result.static_files
     );
+
+    // Build search index
+    print!("Building search index...");
+    let page_count = build_search_index(&result.output_dir).await?;
+    println!(" indexed {} pages", page_count);
 
     Ok(())
 }

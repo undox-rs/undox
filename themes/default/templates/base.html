@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ page.title }}{% endblock %} - {{ site.name }}</title>
     {% if page.description %}<meta name="description" content="{{ page.description }}">{% endif %}
+    <link href="/_pagefind/pagefind-ui.css" rel="stylesheet">
     {% block head %}{% endblock %}
     <script>
         // Prevent flash of wrong theme
@@ -86,7 +87,48 @@
         .header-controls {
             display: flex;
             align-items: center;
+            gap: 0.75rem;
+        }
+
+        /* Search */
+        .search-button {
+            background: none;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            padding: 0.4rem 0.75rem;
+            cursor: pointer;
+            color: var(--color-text-muted);
+            display: flex;
+            align-items: center;
             gap: 0.5rem;
+            font-size: 0.875rem;
+            transition: border-color 0.2s, color 0.2s;
+            min-width: 180px;
+        }
+
+        .search-button:hover {
+            border-color: var(--color-text-muted);
+            color: var(--color-text);
+        }
+
+        .search-button svg {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        .search-button span {
+            flex: 1;
+            text-align: left;
+        }
+
+        .search-button kbd {
+            font-family: inherit;
+            font-size: 0.75rem;
+            background: var(--color-code-bg);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            border: 1px solid var(--color-border);
         }
 
         .theme-toggle {
@@ -338,6 +380,13 @@
         <a href="/" class="site-title">{{ site.name }}</a>
         <div class="header-controls">
             {% block header_right %}{% endblock %}
+            <button class="search-button" id="search-button" aria-label="Search">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span>Search...</span>
+                <kbd>/</kbd>
+            </button>
             <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
                 <svg class="icon-system" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -439,6 +488,161 @@
                 const setting = localStorage.getItem('theme') || 'system';
                 if (setting === 'system') {
                     applyTheme('system');
+                }
+            });
+        })();
+    </script>
+
+    <!-- Pagefind Search -->
+    <div id="search-modal" style="display: none;">
+        <div class="search-modal-backdrop"></div>
+        <div class="search-modal-content">
+            <div id="search"></div>
+        </div>
+    </div>
+    <style>
+        #search-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+        }
+        .search-modal-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        .search-modal-content {
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            background: var(--color-bg);
+            border-radius: 12px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        /* Pagefind UI customizations */
+        .pagefind-ui {
+            --pagefind-ui-scale: 1;
+            --pagefind-ui-primary: var(--color-link);
+            --pagefind-ui-text: var(--color-text);
+            --pagefind-ui-background: var(--color-bg);
+            --pagefind-ui-border: var(--color-border);
+            --pagefind-ui-tag: var(--color-code-bg);
+            --pagefind-ui-border-width: 1px;
+            --pagefind-ui-border-radius: 6px;
+            --pagefind-ui-font: inherit;
+        }
+        #search {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            height: 100%;
+            min-height: 0;
+        }
+        .pagefind-ui {
+            padding: 1rem;
+            display: flex !important;
+            flex-direction: column !important;
+            height: 100%;
+            min-height: 0;
+        }
+        .pagefind-ui .pagefind-ui__form {
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            min-height: 0 !important;
+        }
+        .pagefind-ui .pagefind-ui__form::before {
+            /* Adjust icon position for smaller input (48px vs default 64px) */
+            top: calc(15px * var(--pagefind-ui-scale));
+        }
+        .pagefind-ui .pagefind-ui__search-input {
+            font-size: 1rem;
+            height: calc(48px * var(--pagefind-ui-scale));
+            flex-shrink: 0 !important;
+        }
+        .pagefind-ui .pagefind-ui__search-clear {
+            /* Adjust clear button for smaller input */
+            top: calc(4px * var(--pagefind-ui-scale));
+            height: calc(40px * var(--pagefind-ui-scale));
+        }
+        .pagefind-ui .pagefind-ui__drawer {
+            flex: 1 !important;
+            flex-direction: column !important;
+            overflow-y: auto !important;
+            margin-top: calc(12px * var(--pagefind-ui-scale));
+            min-height: 0 !important;
+        }
+        .pagefind-ui .pagefind-ui__results-area {
+            flex: 1;
+            min-height: 0;
+        }
+        .pagefind-ui .pagefind-ui__results {
+            max-height: 100%;
+        }
+        .pagefind-ui .pagefind-ui__result {
+            border-radius: 8px;
+        }
+        .pagefind-ui .pagefind-ui__result:hover {
+            background: var(--color-code-bg);
+        }
+        .pagefind-ui .pagefind-ui__result-inner {
+            padding: 1rem;
+        }
+        .pagefind-ui .pagefind-ui__result-link {
+            color: var(--color-link);
+        }
+        .pagefind-ui .pagefind-ui__result-excerpt {
+            color: var(--color-text-muted);
+        }
+    </style>
+    <script src="/_pagefind/pagefind-ui.js"></script>
+    <script>
+        (function() {
+            const searchButton = document.getElementById('search-button');
+            const searchModal = document.getElementById('search-modal');
+            const backdrop = searchModal.querySelector('.search-modal-backdrop');
+            let pagefindUI = null;
+
+            function openSearch() {
+                searchModal.style.display = 'block';
+                document.body.style.overflow = 'hidden';
+                if (!pagefindUI) {
+                    pagefindUI = new PagefindUI({
+                        element: '#search',
+                        showSubResults: true,
+                        showImages: false,
+                    });
+                }
+                setTimeout(() => {
+                    const input = searchModal.querySelector('.pagefind-ui__search-input');
+                    if (input) input.focus();
+                }, 100);
+            }
+
+            function closeSearch() {
+                searchModal.style.display = 'none';
+                document.body.style.overflow = '';
+            }
+
+            searchButton.addEventListener('click', openSearch);
+            backdrop.addEventListener('click', closeSearch);
+
+            document.addEventListener('keydown', (e) => {
+                // Open with / key
+                if (e.key === '/' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT') {
+                    e.preventDefault();
+                    openSearch();
+                }
+                // Close with Escape
+                if (e.key === 'Escape' && searchModal.style.display === 'block') {
+                    closeSearch();
                 }
             });
         })();
