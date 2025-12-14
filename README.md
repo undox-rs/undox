@@ -1,10 +1,9 @@
 <p align="center">
   <picture>
-    <source srcset="./assets/logo/wordmark_dark.png" media="(prefers-color-scheme: dark)">
-    <img src="./assets/logo/wordmark_light.png" alt="undox logo" width="360">
+    <source srcset="https://github.com/undox-rs/undox/raw/main/assets/logo/wordmark_dark.png" media="(prefers-color-scheme: dark)">
+    <img src="https://github.com/undox-rs/undox/raw/main/assets/logo/wordmark_light.png" alt="undox logo" width="360">
   </picture>
 </p>
-
 
 **undox** is a batteries-included static site generator for documentation, with first-class support for aggregating content from multiple repositories.
 

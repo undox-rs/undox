@@ -1,8 +1,8 @@
 [package]
 name = "undox"
-version = "0.1.0"
+version = "0.1.1"
 description = "A static site generator for multi-repo documentation"
-repository = "https://github.com/BinaryMuse/undox"
+repository = "https://github.com/undox-rs/undox"
 homepage = "https://undox.dev"
 readme = "README.md"
 keywords = ["documentation", "static-site", "markdown"]
