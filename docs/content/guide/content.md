@@ -142,6 +142,8 @@ fn main() {
 }
 ```
 
+Code blocks include a **copy button** that appears on hover, making it easy for readers to copy code snippets.
+
 See [Syntax Highlighting](/guide/syntax-highlighting) for the full list of supported languages.
 
 ## File Organization

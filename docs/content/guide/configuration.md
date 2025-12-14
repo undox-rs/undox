@@ -138,6 +138,69 @@ sources:
 
 Each source becomes a section in your navigation.
 
+### Remote Git Sources
+
+Pull documentation directly from a git repository:
+
+```yaml
+sources:
+  - name: cli
+    git:
+      url: https://github.com/example/cli-repo
+      ref: main           # Branch, tag, or commit
+      path: docs/         # Path within the repo
+    url_prefix: /cli
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `git.url` | Yes | Repository URL (HTTPS or SSH) |
+| `git.ref` | No | Branch, tag, or commit (default: `main`) |
+| `git.path` | No | Path to docs within the repo (default: root) |
+
+undox clones the repository to `.undox/cache/git/` and uses the specified path as the content source. The cache is reused between builds - run with a fresh clone by deleting the cache directory.
+
+**SSH Authentication**: For private repositories, ensure your SSH keys are configured. undox uses your system's SSH agent.
+
+## Dev Server Configuration
+
+Configure the development server behavior:
+
+```yaml
+dev:
+  live_reload: true    # Enable/disable browser auto-refresh (default: true)
+  watch:
+    poll: false        # Use polling instead of native FS events
+    poll_interval_ms: 500   # Poll interval when polling is enabled
+    debounce_ms: 100   # Debounce delay for file changes
+```
+
+### Live Reload
+
+When running `undox serve --watch`, the browser automatically refreshes when files change. Disable this with:
+
+```yaml
+dev:
+  live_reload: false
+```
+
+### File Watching
+
+By default, undox uses native filesystem events for efficient change detection. On some systems (Docker volumes, network filesystems, WSL), native events may be unreliable. Switch to polling mode:
+
+```yaml
+dev:
+  watch:
+    poll: true
+    poll_interval_ms: 1000  # Check every second
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `poll` | `false` | Use polling-based file watcher |
+| `poll_interval_ms` | `500` | Polling interval in milliseconds |
+| `debounce_ms` | `100` | Wait time before triggering rebuild |
+
 ## Environment Variables
 
 You can use environment variables in your config:

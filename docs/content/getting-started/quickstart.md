@@ -25,15 +25,29 @@ This creates:
 - `content/` - where your documentation lives
 - `content/index.md` - your homepage
 
-## 3. Build Your Site
+## 3. Start the Dev Server
+
+```bash
+undox serve --watch --open
+```
+
+This starts a local development server with:
+- **Live reload** - Your browser automatically refreshes when you edit files
+- **File watching** - Changes to content, templates, or config trigger rebuilds
+
+The `--open` flag opens your browser automatically.
+
+## 4. Build for Production
+
+When you're ready to deploy:
 
 ```bash
 undox build
 ```
 
-Your site is now in `_site/`. Open `_site/index.html` in a browser to see it!
+Your site is now in `_site/`, ready to deploy to any static hosting service.
 
-## 4. Add More Pages
+## 5. Add More Pages
 
 Create new markdown files in the `content/` directory:
 
@@ -73,4 +87,5 @@ my-docs/
 
 - Learn about [Configuration](/guide/configuration) options
 - Explore [Content](/guide/content) authoring with front matter
+- Set up [Multi-Repository Documentation](/guide/multi-repo) for larger projects
 - See the full list of [supported languages](/guide/syntax-highlighting) for code blocks
