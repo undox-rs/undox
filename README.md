@@ -2,8 +2,8 @@
 
 <p align="center">
   <picture>
-    <source srcset="assets/logo/wordmark_dark.png" media="(prefers-color-scheme: dark)">
-    <img src="assets/logo/wordmark_light.png" alt="undox logo" width="360">
+    <source srcset="./assets/logo/wordmark_dark_2x.png" media="(prefers-color-scheme: dark)">
+    <img src="./assets/logo/wordmark_light_2x.png" alt="undox logo" width="360">
   </picture>
 </p>
 
