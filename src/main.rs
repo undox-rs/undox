@@ -5,6 +5,7 @@ use clap::{Parser, Subcommand};
 mod build;
 mod commands;
 mod config;
+mod git;
 mod theme;
 
 #[derive(Parser)]
@@ -56,13 +57,13 @@ struct ServeArgs {
 
 #[derive(Subcommand)]
 enum UndoxCommand {
-    /// Initialize a new Undox project
+    /// Initialize a new undox project
     Init(InitArgs),
 
-    /// Build the Undox project
+    /// Build the undox project
     Build(BuildArgs),
 
-    /// Serve the Undox project on a local port
+    /// Serve the undox project on a local port
     Serve(ServeArgs),
 }
 

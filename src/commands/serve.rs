@@ -24,22 +24,26 @@ pub async fn run(args: &ServeArgs) -> Result<(), anyhow::Error> {
 
     let config = Config::load_from_arg(Some(config_path.as_path())).await?;
 
-    // Extract root config
-    let root_config = match config {
-        Config::Root(root) => root,
-        Config::Child(_child) => {
-            return Err(anyhow::anyhow!(
-                "Child config support not yet implemented. Use a root config file."
-            ));
-        }
-    };
-
     // Get the base path for resolving relative paths
     let base_path = base_path_from_config(&config_path);
 
+    // Resolve config to root config and optional parent path
+    let (root_config, parent_path) = match config {
+        Config::Root(root) => (root, None),
+        Config::Child(child) => {
+            // Resolve child config by fetching parent
+            let cache_dir = base_path.join(".undox/cache/git");
+            let resolved = child.resolve(&base_path, &cache_dir)?;
+            (resolved.config, Some(resolved.parent_path))
+        }
+    };
+
     // Build the site first
     println!("Building site...");
-    let builder = Builder::new(root_config, base_path);
+    let mut builder = Builder::new(root_config, base_path);
+    if let Some(parent_path) = parent_path {
+        builder = builder.with_theme_base_path(parent_path);
+    }
     let result = builder.build().await?;
 
     println!(

@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::config::{SourceConfig, SourceLocation};
+use crate::git::GitFetcher;
 
 use super::document::{ContentItem, Document, StaticFile};
 
@@ -28,8 +29,8 @@ pub enum SourceError {
         source: std::io::Error,
     },
 
-    #[error("git sources are not yet supported")]
-    GitNotSupported,
+    #[error("git fetch error: {0}")]
+    Git(#[from] crate::git::GitError),
 }
 
 // =============================================================================
@@ -49,8 +50,12 @@ impl ResolvedSource {
     /// Resolve a source configuration to a local path.
     ///
     /// For local sources, this validates the path exists.
-    /// For git sources, this would clone/fetch the repo (not yet implemented).
-    pub fn resolve(config: SourceConfig, base_path: &Path) -> Result<Self, SourceError> {
+    /// For git sources, this clones/fetches the repo to the cache directory.
+    pub fn resolve(
+        config: SourceConfig,
+        base_path: &Path,
+        cache_dir: &Path,
+    ) -> Result<Self, SourceError> {
         let local_path = match &config.location {
             SourceLocation::Local { path } => {
                 // Resolve relative paths against base_path
@@ -70,8 +75,25 @@ impl ResolvedSource {
 
                 resolved
             }
-            SourceLocation::Git { .. } => {
-                return Err(SourceError::GitNotSupported);
+            SourceLocation::Git { git } => {
+                // Fetch/update the git repository
+                let fetcher = GitFetcher::new(cache_dir.to_path_buf());
+                let repo_path = fetcher.fetch(git)?;
+
+                // If git.path is set, use that subdirectory within the repo
+                match &git.path {
+                    Some(subpath) => {
+                        let full_path = repo_path.join(subpath);
+                        if !full_path.exists() {
+                            return Err(SourceError::PathNotFound(full_path));
+                        }
+                        if !full_path.is_dir() {
+                            return Err(SourceError::NotADirectory(full_path));
+                        }
+                        full_path
+                    }
+                    None => repo_path,
+                }
             }
         };
 

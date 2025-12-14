@@ -8,7 +8,7 @@ use super::document::{ContentItem, Document, parse_front_matter};
 use super::highlight::SyntaxHighlighter;
 use super::render::{
     ContentRenderContext, NavLink, NavSection, PageContext, PageInfo, RenderError, Renderer,
-    SiteContext, TocEntry,
+    SiteContext, SourceTab, TocEntry,
 };
 use super::source::{ResolvedSource, SourceError};
 
@@ -38,11 +38,25 @@ pub struct Builder {
     config: RootConfig,
     /// Base path for resolving relative paths (typically the config file's directory)
     base_path: PathBuf,
+    /// Optional path for theme resolution (used when building child configs)
+    /// If set, themes are resolved relative to this path instead of base_path
+    theme_base_path: Option<PathBuf>,
 }
 
 impl Builder {
     pub fn new(config: RootConfig, base_path: PathBuf) -> Self {
-        Self { config, base_path }
+        Self {
+            config,
+            base_path,
+            theme_base_path: None,
+        }
+    }
+
+    /// Set a custom base path for theme resolution.
+    /// Used when building child configs where the theme is in the parent repo.
+    pub fn with_theme_base_path(mut self, path: PathBuf) -> Self {
+        self.theme_base_path = Some(path);
+        self
     }
 
     pub async fn build(&self) -> Result<BuildResult, BuildError> {
@@ -92,17 +106,43 @@ impl Builder {
         let theme_path = self.theme_path();
         let mut renderer = Renderer::new(&theme_path)?;
 
-        // Step 4: Build navigation from documents
-        let nav = self.build_navigation(&all_items);
+        // Step 4: Build source tabs for top-level navigation
+        let source_tabs: Vec<SourceTab> = resolved_sources
+            .iter()
+            .map(|source| {
+                let url_prefix = source.url_prefix();
+                let is_top_level = url_prefix == "/";
+                // Use title if set, otherwise title-case the name
+                let display_name = source
+                    .config
+                    .title
+                    .clone()
+                    .unwrap_or_else(|| title_case(&source.config.name));
+                SourceTab {
+                    name: display_name,
+                    source_id: source.config.name.clone(),
+                    url: if is_top_level {
+                        "/".to_string()
+                    } else {
+                        format!("{}/", url_prefix)
+                    },
+                    is_current: false, // Will be set per-page
+                    is_top_level,
+                }
+            })
+            .collect();
 
-        // Step 5: Create output directory
+        // Step 5: Build per-source navigation
+        let nav_by_source = self.build_navigation_by_source(&all_items);
+
+        // Step 6: Create output directory
         let output_dir = self.output_dir();
         std::fs::create_dir_all(&output_dir)?;
 
-        // Step 6: Create syntax highlighter
+        // Step 7: Create syntax highlighter
         let highlighter = SyntaxHighlighter::default();
 
-        // Step 7: Render and write each item
+        // Step 8: Render and write each item
         let site_context = SiteContext {
             name: self.config.site.name.clone(),
             url: self.config.site.url.clone(),
@@ -122,7 +162,8 @@ impl Builder {
                 &output_dir,
                 &mut renderer,
                 &site_context,
-                &nav,
+                &nav_by_source,
+                &source_tabs,
                 &highlighter,
                 &theme_settings,
                 &markdown_config,
@@ -152,7 +193,8 @@ impl Builder {
         output_dir: &Path,
         renderer: &mut Renderer,
         site: &SiteContext,
-        nav: &[NavSection],
+        nav_by_source: &std::collections::HashMap<String, Vec<NavSection>>,
+        source_tabs: &[SourceTab],
         highlighter: &SyntaxHighlighter,
         theme_settings: &serde_json::Value,
         markdown_config: &MarkdownConfig,
@@ -184,10 +226,30 @@ impl Builder {
                     },
                     theme: theme_settings.clone(),
                 };
-                let tera_processed_content = renderer.render_content(&parsed.content, &content_context)?;
+                let tera_processed_content =
+                    renderer.render_content(&parsed.content, &content_context)?;
 
                 // Second pass: Render markdown to HTML with syntax highlighting
-                let markdown_output = render_markdown(&tera_processed_content, highlighter, markdown_config)?;
+                let markdown_output =
+                    render_markdown(&tera_processed_content, highlighter, markdown_config)?;
+
+                // Get navigation for this document's source
+                let nav = nav_by_source
+                    .get(&doc.source_name)
+                    .cloned()
+                    .unwrap_or_default();
+
+                // Build source tabs with current source highlighted
+                let sources: Vec<SourceTab> = source_tabs
+                    .iter()
+                    .map(|tab| SourceTab {
+                        name: tab.name.clone(),
+                        source_id: tab.source_id.clone(),
+                        url: tab.url.clone(),
+                        is_current: tab.source_id == doc.source_name,
+                        is_top_level: tab.is_top_level,
+                    })
+                    .collect();
 
                 // Build page context
                 let context = PageContext {
@@ -199,7 +261,8 @@ impl Builder {
                         extra: parsed.front_matter.extra.clone(),
                     },
                     content: markdown_output.html,
-                    nav: nav.to_vec(),
+                    nav,
+                    sources,
                     toc: markdown_output.toc,
                     theme: theme_settings.clone(),
                 };
@@ -231,10 +294,13 @@ impl Builder {
 
     /// Resolve all source configurations to local paths.
     fn resolve_sources(&self) -> Result<Vec<ResolvedSource>, SourceError> {
+        let cache_dir = self.base_path.join(".undox/cache/git");
         self.config
             .sources
             .iter()
-            .map(|source_config| ResolvedSource::resolve(source_config.clone(), &self.base_path))
+            .map(|source_config| {
+                ResolvedSource::resolve(source_config.clone(), &self.base_path, &cache_dir)
+            })
             .collect()
     }
 
@@ -252,10 +318,15 @@ impl Builder {
     /// For now, always uses the built-in default theme.
     fn theme_path(&self) -> PathBuf {
         // TODO: Support custom themes from config
-        // For now, look for themes relative to the executable or use a fallback
+        // Use theme_base_path if set (for child configs), otherwise base_path
+        let theme_base = self.theme_base_path.as_ref().unwrap_or(&self.base_path);
+
+        // For now, look for themes relative to the theme base or executable
         let exe_path = std::env::current_exe().ok();
         let possible_paths = [
-            // Development: relative to project root
+            // Development: relative to theme base (parent repo for child configs)
+            theme_base.join("themes/default"),
+            // Also try base_path in case theme_base_path doesn't have themes
             self.base_path.join("themes/default"),
             // Installed: relative to executable
             exe_path
@@ -272,69 +343,87 @@ impl Builder {
         }
 
         // Fallback - will error when renderer tries to load
-        self.base_path.join("themes/default")
+        theme_base.join("themes/default")
     }
 
-    /// Build navigation structure from discovered documents.
-    fn build_navigation(&self, items: &[(ContentItem, PathBuf)]) -> Vec<NavSection> {
-        // Collect all documents
-        let mut docs: Vec<&Document> = items
-            .iter()
-            .filter_map(|(item, _)| match item {
-                ContentItem::Document(doc) => Some(doc),
-                _ => None,
-            })
-            .collect();
-
-        // Sort by URL path for consistent ordering
-        docs.sort_by(|a, b| a.url_path.cmp(&b.url_path));
-
-        // Group by top-level directory
-        let mut sections: std::collections::HashMap<String, Vec<NavLink>> =
+    /// Build navigation structure grouped by source.
+    ///
+    /// Returns a map from source name to that source's navigation.
+    /// Each source gets its own isolated navigation containing only its documents.
+    fn build_navigation_by_source(
+        &self,
+        items: &[(ContentItem, PathBuf)],
+    ) -> std::collections::HashMap<String, Vec<NavSection>> {
+        // Group documents by source
+        let mut docs_by_source: std::collections::HashMap<String, Vec<&Document>> =
             std::collections::HashMap::new();
-        let mut root_links: Vec<NavLink> = Vec::new();
 
-        for doc in docs {
-            let link = NavLink {
-                title: doc.title(),
-                url: doc.url_path.clone(),
-            };
-
-            // Determine the section from the path
-            let path_parts: Vec<&str> = doc.url_path.trim_matches('/').split('/').collect();
-
-            if path_parts.len() <= 1 {
-                // Root level document
-                root_links.push(link);
-            } else {
-                // Nested document - use first directory as section
-                let section_name = path_parts[0].to_string();
-                sections.entry(section_name).or_default().push(link);
+        for (item, _) in items {
+            if let ContentItem::Document(doc) = item {
+                docs_by_source
+                    .entry(doc.source_name.clone())
+                    .or_default()
+                    .push(doc);
             }
         }
 
-        // Build the final nav structure
-        let mut nav: Vec<NavSection> = Vec::new();
+        // Build navigation for each source
+        let mut nav_by_source = std::collections::HashMap::new();
 
-        // Add root links first
-        for link in root_links {
-            nav.push(NavSection::Link(link));
-        }
+        for (source_name, mut docs) in docs_by_source {
+            // Sort by source path (relative path within the source) for consistent ordering
+            docs.sort_by(|a, b| a.source_path.cmp(&b.source_path));
 
-        // Add sections (sorted by name)
-        let mut section_names: Vec<_> = sections.keys().collect();
-        section_names.sort();
+            // Group by directory within the source
+            let mut sections: std::collections::HashMap<String, Vec<NavLink>> =
+                std::collections::HashMap::new();
+            let mut root_links: Vec<NavLink> = Vec::new();
 
-        for section_name in section_names {
-            if let Some(links) = sections.get(section_name) {
-                nav.push(NavSection::Section {
-                    section: title_case(section_name),
-                    items: links.clone(),
-                });
+            for doc in docs {
+                let link = NavLink {
+                    title: doc.title(),
+                    url: doc.url_path.clone(),
+                };
+
+                // Use source_path (relative to source root) for sectioning
+                let path_str = doc.source_path.to_string_lossy();
+                let path_parts: Vec<&str> = path_str.trim_matches('/').split('/').collect();
+
+                if path_parts.len() <= 1 {
+                    // Root level document within this source
+                    root_links.push(link);
+                } else {
+                    // Nested document - use first directory as section
+                    let section_name = path_parts[0].to_string();
+                    sections.entry(section_name).or_default().push(link);
+                }
             }
+
+            // Build the nav structure for this source
+            let mut nav: Vec<NavSection> = Vec::new();
+
+            // Add root links first
+            for link in root_links {
+                nav.push(NavSection::Link(link));
+            }
+
+            // Add sections (sorted by name)
+            let mut section_names: Vec<_> = sections.keys().collect();
+            section_names.sort();
+
+            for section_name in section_names {
+                if let Some(links) = sections.get(section_name) {
+                    nav.push(NavSection::Section {
+                        section: title_case(section_name),
+                        items: links.clone(),
+                    });
+                }
+            }
+
+            nav_by_source.insert(source_name, nav);
         }
 
-        nav
+        nav_by_source
     }
 }
 

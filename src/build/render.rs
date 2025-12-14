@@ -41,6 +41,7 @@ impl Renderer {
         tera_context.insert("page", &context.page);
         tera_context.insert("content", &context.content);
         tera_context.insert("nav", &context.nav);
+        tera_context.insert("sources", &context.sources);
         tera_context.insert("toc", &context.toc);
         tera_context.insert("theme", &context.theme);
 
@@ -99,11 +100,30 @@ pub struct PageContext {
     pub site: SiteContext,
     pub page: PageInfo,
     pub content: String,
+    /// Navigation for the current source only
     pub nav: Vec<NavSection>,
+    /// All sources/projects for top-level tabs
+    pub sources: Vec<SourceTab>,
     /// Table of contents for the current page
     pub toc: Vec<TocEntry>,
     /// Theme settings from config, accessible as `theme.*` in templates
     pub theme: serde_json::Value,
+}
+
+/// Information about a source/project for top-level navigation tabs.
+#[derive(Debug, Clone, Serialize)]
+pub struct SourceTab {
+    /// Display name for the source (uses title if set, otherwise name)
+    pub name: String,
+    /// Source identifier (the config name, used for matching)
+    #[serde(skip_serializing)]
+    pub source_id: String,
+    /// URL to the source's root page
+    pub url: String,
+    /// Whether this is the currently active source
+    pub is_current: bool,
+    /// Whether this is a top-level source (url_prefix is "/")
+    pub is_top_level: bool,
 }
 
 /// Site-level information.

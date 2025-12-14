@@ -15,6 +15,18 @@ pub enum ConfigError {
 
     #[error("{0}")]
     Validation(String),
+
+    #[error("failed to fetch parent repository: {0}")]
+    GitFetch(#[from] crate::git::GitError),
+
+    #[error("failed to read parent config: {0}")]
+    ReadParent(std::io::Error),
+
+    #[error("parent config is not a root config")]
+    ParentNotRoot,
+
+    #[error("source '{0}' not found in parent config")]
+    SourceNotFound(String),
 }
 
 // =============================================================================
@@ -107,6 +119,9 @@ pub struct RootConfig {
 pub struct ChildConfig {
     /// URL or local path to the parent site's undox.yaml
     pub parent: String,
+    /// Branch, tag, or commit to checkout when parent is a git URL
+    #[serde(rename = "ref")]
+    pub parent_ref: Option<String>,
     /// Which source in the parent config this repo corresponds to
     pub source: String,
     /// Optional overrides for source-specific settings
@@ -114,6 +129,130 @@ pub struct ChildConfig {
     pub overrides: SourceOverrides,
     /// Development-specific settings
     pub dev: Option<DevConfig>,
+}
+
+/// Result of resolving a child config, containing the synthetic root config
+/// and the path to the parent repository (for theme resolution).
+pub struct ResolvedChildConfig {
+    /// The synthetic root config with just this source
+    pub config: RootConfig,
+    /// Path to the parent repository (for theme resolution)
+    pub parent_path: PathBuf,
+}
+
+impl ChildConfig {
+    /// Resolve this child config by fetching the parent and creating a synthetic RootConfig.
+    ///
+    /// The resulting config will only include this child's source, with the local
+    /// content path instead of whatever was specified in the parent.
+    pub fn resolve(
+        &self,
+        child_base_path: &Path,
+        cache_dir: &Path,
+    ) -> Result<ResolvedChildConfig, ConfigError> {
+        use crate::git::GitFetcher;
+
+        // Use dev.parent override if set, otherwise use parent
+        let parent_url = self
+            .dev
+            .as_ref()
+            .and_then(|d| d.parent.as_ref())
+            .unwrap_or(&self.parent);
+
+        // Determine if parent is a git URL or local path
+        let parent_path = if parent_url.starts_with("http://")
+            || parent_url.starts_with("https://")
+            || parent_url.starts_with("git@")
+        {
+            // It's a git URL - fetch it
+            eprintln!("Fetching parent config from {}...", parent_url);
+            let fetcher = GitFetcher::new(cache_dir.to_path_buf());
+            let git_config = GitConfig {
+                url: parent_url.clone(),
+                git_ref: self.parent_ref.clone(),
+                path: None,
+                sparse: false,
+            };
+            fetcher.fetch(&git_config)?
+        } else {
+            // It's a local path
+            let path = PathBuf::from(parent_url);
+            if path.is_relative() {
+                child_base_path.join(path)
+            } else {
+                path
+            }
+        };
+
+        // Load parent config
+        let parent_config_path = parent_path.join("undox.yaml");
+        let parent_config_str = std::fs::read_to_string(&parent_config_path)
+            .map_err(ConfigError::ReadParent)?;
+
+        // Parse parent config - it must be a root config
+        let parent_config: Config = serde_yaml::from_str(&parent_config_str)
+            .map_err(|e| ConfigError::Validation(format!("failed to parse parent config: {}", e)))?;
+
+        let parent_root = match parent_config {
+            Config::Root(root) => root,
+            Config::Child(_) => return Err(ConfigError::ParentNotRoot),
+        };
+
+        // Find our source in the parent to verify it exists
+        let source_index = parent_root
+            .sources
+            .iter()
+            .position(|s| s.name == self.source)
+            .ok_or_else(|| ConfigError::SourceNotFound(self.source.clone()))?;
+
+        // Clone all sources, fixing paths relative to parent for non-child sources
+        let mut sources = parent_root.sources.clone();
+
+        for (i, source) in sources.iter_mut().enumerate() {
+            if i == source_index {
+                // This is the child's source - point to local content
+                let content_path = if child_base_path.join("content").is_dir() {
+                    child_base_path.join("content")
+                } else {
+                    child_base_path.to_path_buf()
+                };
+                source.location = SourceLocation::Local { path: content_path };
+
+                // Apply overrides from child config
+                if let Some(repo_url) = &self.overrides.repo_url {
+                    source.repo_url = Some(repo_url.clone());
+                }
+                if let Some(edit_path) = &self.overrides.edit_path {
+                    source.edit_path = Some(edit_path.clone());
+                }
+                if let Some(nav) = &self.overrides.nav {
+                    source.nav = Some(nav.clone());
+                }
+            } else {
+                // Other sources - fix local paths to be absolute relative to parent
+                if let SourceLocation::Local { path } = &source.location {
+                    if path.is_relative() {
+                        source.location = SourceLocation::Local {
+                            path: parent_path.join(path),
+                        };
+                    }
+                }
+            }
+        }
+
+        // Create root config with all sources (our source now points to local content)
+        let synthetic_root = RootConfig {
+            site: parent_root.site.clone(),
+            sources,
+            theme: parent_root.theme.clone(),
+            markdown: parent_root.markdown.clone(),
+        };
+
+        Ok(ResolvedChildConfig {
+            config: synthetic_root,
+            parent_path,
+        })
+    }
 }
 
 // =============================================================================
@@ -169,6 +308,8 @@ impl Default for ThemeConfig {
 pub struct SourceConfig {
     /// Unique identifier for this source
     pub name: String,
+    /// Display title for source tabs (defaults to name if not set)
+    pub title: Option<String>,
     /// URL path prefix (e.g., "/cli" -> site.com/cli/...)
     pub url_prefix: Option<String>,
     /// Repository URL for "edit on GitHub" links

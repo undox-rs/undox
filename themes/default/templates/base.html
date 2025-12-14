@@ -9,8 +9,7 @@
     </title>
     {% if page.description %}
     <meta name="description" content="{{ page.description }}" />
-    {% endif %}
-    {% if site.favicon %}
+    {% endif %} {% if site.favicon %}
     <link rel="icon" href="{{ site.favicon }}" />
     {% endif %}
     <link href="/_pagefind/pagefind-ui.css" rel="stylesheet" />
@@ -174,6 +173,41 @@
         display: flex;
         align-items: center;
         gap: 0.5rem;
+      }
+
+      /* Source tabs (for multi-source sites) */
+      .source-tabs {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        margin-left: 1.5rem;
+      }
+
+      .source-tab {
+        padding: 0.4rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--color-text-muted);
+        text-decoration: none;
+        transition: background 0.2s, color 0.2s;
+      }
+
+      .source-tab:hover {
+        background: var(--color-code-bg);
+        color: var(--color-text);
+        text-decoration: none;
+      }
+
+      .source-tab.active {
+        background: var(--color-code-bg);
+        color: var(--color-text);
+      }
+
+      @media (max-width: 768px) {
+        .source-tabs {
+          display: none;
+        }
       }
 
       /* Search */
@@ -438,6 +472,46 @@
         background: var(--color-code-bg);
         font-weight: 500;
         color: var(--color-link);
+      }
+
+      /* Sidebar source tabs (mobile) */
+      .sidebar-sources {
+        display: none;
+        padding: 0 0.5rem 1rem;
+        margin-bottom: 0.5rem;
+        border-bottom: 1px solid var(--color-border);
+      }
+
+      .sidebar-sources-title {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--color-text-muted);
+        margin-bottom: 0.5rem;
+      }
+
+      .sidebar-source-link {
+        display: block;
+        padding: 0.4rem 0;
+        color: var(--color-text);
+        font-size: 0.875rem;
+        font-weight: 500;
+      }
+
+      .sidebar-source-link:hover {
+        color: var(--color-link);
+        text-decoration: none;
+      }
+
+      .sidebar-source-link.active {
+        color: var(--color-link);
+      }
+
+      @media (max-width: 768px) {
+        .sidebar-sources {
+          display: block;
+        }
       }
 
       /* Header anchor (permalink) */
@@ -859,6 +933,19 @@
           {% else %} {{ site.name }} {% endif %} {% else %} {{ site.name }} {%
           endif %}
         </a>
+        {% if sources | length > 1 %}
+        <nav class="source-tabs">
+          {% for source in sources %} {% if not source.is_top_level or not
+          theme.hide_top_level_source %}
+          <a
+            href="{{ source.url }}"
+            class="source-tab{% if source.is_current %} active{% endif %}"
+          >
+            {{ source.name }}
+          </a>
+          {% endif %} {% endfor %}
+        </nav>
+        {% endif %}
       </div>
       <div class="header-controls">
         {% block header_right %}{% endblock %}
@@ -936,6 +1023,20 @@
 
       {% block sidebar %}
       <nav class="sidebar" id="sidebar">
+        {% if sources | length > 1 %}
+        <div class="sidebar-sources">
+          <div class="sidebar-sources-title">Projects</div>
+          {% for source in sources %} {% if not source.is_top_level or not
+          theme.hide_top_level_source %}
+          <a
+            href="{{ source.url }}"
+            class="sidebar-source-link{% if source.is_current %} active{% endif %}"
+          >
+            {{ source.name }}
+          </a>
+          {% endif %} {% endfor %}
+        </div>
+        {% endif %}
         {% for item in nav %} {% if item.section %}
         <div class="nav-section">
           <div class="nav-section-title">{{ item.section }}</div>
@@ -1142,30 +1243,45 @@
         const swipeThreshold = 50;
         const edgeZone = 80; // pixels from left edge to start swipe-to-open (wide to avoid browser back gesture)
 
-        document.addEventListener("touchstart", (e) => {
-          touchStartX = e.touches[0].clientX;
-          touchStartY = e.touches[0].clientY;
-        }, { passive: true });
+        document.addEventListener(
+          "touchstart",
+          (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+          },
+          { passive: true }
+        );
 
-        document.addEventListener("touchend", (e) => {
-          const touchEndX = e.changedTouches[0].clientX;
-          const touchEndY = e.changedTouches[0].clientY;
-          const deltaX = touchEndX - touchStartX;
-          const deltaY = touchEndY - touchStartY;
+        document.addEventListener(
+          "touchend",
+          (e) => {
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+            const deltaX = touchEndX - touchStartX;
+            const deltaY = touchEndY - touchStartY;
 
-          // Only handle horizontal swipes (ignore if vertical movement is greater)
-          if (Math.abs(deltaY) > Math.abs(deltaX)) return;
+            // Only handle horizontal swipes (ignore if vertical movement is greater)
+            if (Math.abs(deltaY) > Math.abs(deltaX)) return;
 
-          // Swipe right to open (must start from left edge)
-          if (deltaX > swipeThreshold && touchStartX < edgeZone && !sidebar.classList.contains("open")) {
-            openSidebar();
-          }
+            // Swipe right to open (must start from left edge)
+            if (
+              deltaX > swipeThreshold &&
+              touchStartX < edgeZone &&
+              !sidebar.classList.contains("open")
+            ) {
+              openSidebar();
+            }
 
-          // Swipe left to close (from anywhere when open)
-          if (deltaX < -swipeThreshold && sidebar.classList.contains("open")) {
-            closeSidebar();
-          }
-        }, { passive: true });
+            // Swipe left to close (from anywhere when open)
+            if (
+              deltaX < -swipeThreshold &&
+              sidebar.classList.contains("open")
+            ) {
+              closeSidebar();
+            }
+          },
+          { passive: true }
+        );
       })();
 
       // Mobile TOC toggle
