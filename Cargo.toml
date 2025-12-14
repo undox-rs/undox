@@ -22,3 +22,8 @@ autumnus = "0.7"
 
 # Search indexing
 pagefind = "1.5.0-alpha.2"
+
+# Dev server
+axum = "0.8"
+tower-http = { version = "0.6", features = ["fs"] }
+open = "5"
