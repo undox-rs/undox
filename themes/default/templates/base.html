@@ -1132,6 +1132,37 @@
             }
           });
         });
+
+        // Touch gesture support for swipe open/close
+        let touchStartX = 0;
+        let touchStartY = 0;
+        const swipeThreshold = 50;
+        const edgeZone = 80; // pixels from left edge to start swipe-to-open (wide to avoid browser back gesture)
+
+        document.addEventListener("touchstart", (e) => {
+          touchStartX = e.touches[0].clientX;
+          touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        document.addEventListener("touchend", (e) => {
+          const touchEndX = e.changedTouches[0].clientX;
+          const touchEndY = e.changedTouches[0].clientY;
+          const deltaX = touchEndX - touchStartX;
+          const deltaY = touchEndY - touchStartY;
+
+          // Only handle horizontal swipes (ignore if vertical movement is greater)
+          if (Math.abs(deltaY) > Math.abs(deltaX)) return;
+
+          // Swipe right to open (must start from left edge)
+          if (deltaX > swipeThreshold && touchStartX < edgeZone && !sidebar.classList.contains("open")) {
+            openSidebar();
+          }
+
+          // Swipe left to close (from anywhere when open)
+          if (deltaX < -swipeThreshold && sidebar.classList.contains("open")) {
+            closeSidebar();
+          }
+        }, { passive: true });
       })();
 
       // Mobile TOC toggle
