@@ -8,7 +8,7 @@ use super::document::{ContentItem, Document, parse_front_matter};
 use super::highlight::SyntaxHighlighter;
 use super::render::{
     ContentRenderContext, NavLink, NavSection, PageContext, PageInfo, RenderError, Renderer,
-    SiteContext, SourceTab, TocEntry,
+    SiteContext, SourceTab, TocEntry, UndoxContext,
 };
 use super::source::{ResolvedSource, SourceError};
 
@@ -41,6 +41,10 @@ pub struct Builder {
     /// Optional path for theme resolution (used when building child configs)
     /// If set, themes are resolved relative to this path instead of base_path
     theme_base_path: Option<PathBuf>,
+    /// Whether we're in development mode (enables live reload script, etc.)
+    dev_mode: bool,
+    /// Whether live reload is enabled (only relevant in dev mode)
+    live_reload: bool,
 }
 
 impl Builder {
@@ -49,6 +53,8 @@ impl Builder {
             config,
             base_path,
             theme_base_path: None,
+            dev_mode: false,
+            live_reload: false,
         }
     }
 
@@ -56,6 +62,18 @@ impl Builder {
     /// Used when building child configs where the theme is in the parent repo.
     pub fn with_theme_base_path(mut self, path: PathBuf) -> Self {
         self.theme_base_path = Some(path);
+        self
+    }
+
+    /// Enable development mode (live reload, etc.)
+    pub fn with_dev_mode(mut self, dev_mode: bool) -> Self {
+        self.dev_mode = dev_mode;
+        self
+    }
+
+    /// Enable live reload in dev mode
+    pub fn with_live_reload(mut self, live_reload: bool) -> Self {
+        self.live_reload = live_reload;
         self
     }
 
@@ -215,6 +233,13 @@ impl Builder {
                     .clone()
                     .unwrap_or_else(|| doc.title());
 
+                // Build undox context
+                let undox_context = UndoxContext {
+                    dev: self.dev_mode,
+                    live_reload: self.dev_mode && self.live_reload,
+                    version: env!("CARGO_PKG_VERSION").to_string(),
+                };
+
                 // First pass: Render markdown content through Tera for macros/loops/variables
                 let content_context = ContentRenderContext {
                     site: site.clone(),
@@ -225,6 +250,7 @@ impl Builder {
                         extra: parsed.front_matter.extra.clone(),
                     },
                     theme: theme_settings.clone(),
+                    undox: undox_context.clone(),
                 };
                 let tera_processed_content =
                     renderer.render_content(&parsed.content, &content_context)?;
@@ -265,6 +291,7 @@ impl Builder {
                     sources,
                     toc: markdown_output.toc,
                     theme: theme_settings.clone(),
+                    undox: undox_context,
                 };
 
                 // Render with template

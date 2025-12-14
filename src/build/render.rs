@@ -44,6 +44,7 @@ impl Renderer {
         tera_context.insert("sources", &context.sources);
         tera_context.insert("toc", &context.toc);
         tera_context.insert("theme", &context.theme);
+        tera_context.insert("undox", &context.undox);
 
         Ok(self.tera.render("page.html", &tera_context)?)
     }
@@ -62,6 +63,7 @@ impl Renderer {
         tera_context.insert("site", &context.site);
         tera_context.insert("page", &context.page);
         tera_context.insert("theme", &context.theme);
+        tera_context.insert("undox", &context.undox);
 
         // Prepend import for macros so content can use them as `macros::name(...)`
         // The macros.html file should exist in the theme's templates directory
@@ -92,6 +94,7 @@ pub struct ContentRenderContext {
     pub site: SiteContext,
     pub page: PageInfo,
     pub theme: serde_json::Value,
+    pub undox: UndoxContext,
 }
 
 /// Context passed to page templates.
@@ -108,6 +111,8 @@ pub struct PageContext {
     pub toc: Vec<TocEntry>,
     /// Theme settings from config, accessible as `theme.*` in templates
     pub theme: serde_json::Value,
+    /// Undox-specific context (dev mode, version, etc.)
+    pub undox: UndoxContext,
 }
 
 /// Information about a source/project for top-level navigation tabs.
@@ -174,4 +179,15 @@ pub struct TocEntry {
     pub id: String,
     /// The heading level (1-6)
     pub level: u8,
+}
+
+/// Undox-specific context available in templates.
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct UndoxContext {
+    /// Whether we're in development/serve mode
+    pub dev: bool,
+    /// Whether live reload is enabled (only true in dev mode with live_reload config enabled)
+    pub live_reload: bool,
+    /// The undox version
+    pub version: String,
 }

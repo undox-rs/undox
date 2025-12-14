@@ -38,3 +38,7 @@ open = "5"
 # File watching
 notify = "8"
 notify-debouncer-full = "0.5"
+
+# SSE live reload
+async-stream = "0.3"
+futures-util = "0.3"

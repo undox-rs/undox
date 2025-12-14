@@ -472,13 +472,30 @@ pub struct SourceOverrides {
     pub nav: Option<NavConfig>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DevConfig {
     /// Override parent path for local development
     pub parent: Option<String>,
     /// File watching configuration
     #[serde(default)]
     pub watch: WatchConfig,
+    /// Enable live reload in the browser when files change (default: true)
+    #[serde(default = "default_live_reload")]
+    pub live_reload: bool,
+}
+
+impl Default for DevConfig {
+    fn default() -> Self {
+        Self {
+            parent: None,
+            watch: WatchConfig::default(),
+            live_reload: true,
+        }
+    }
+}
+
+fn default_live_reload() -> bool {
+    true
 }
 
 /// Configuration for file watching during development.

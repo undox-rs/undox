@@ -1,10 +1,14 @@
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::sync::Arc;
 
+use axum::extract::State;
+use axum::response::sse::{Event, KeepAlive, Sse};
+use axum::routing::get;
 use axum::Router;
-use tokio::sync::Mutex;
+use futures_util::stream::Stream;
+use tokio::sync::broadcast;
 use tower_http::services::ServeDir;
 
 use crate::{
@@ -16,6 +20,31 @@ use crate::{
     theme::ThemeConfig,
     ServeArgs,
 };
+
+/// SSE handler for live reload notifications.
+async fn live_reload_handler(
+    State(tx): State<broadcast::Sender<()>>,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    let rx = tx.subscribe();
+    let stream = async_stream::stream! {
+        let mut rx = rx;
+        loop {
+            match rx.recv().await {
+                Ok(_) => {
+                    yield Ok(Event::default().event("reload").data("reload"));
+                }
+                Err(broadcast::error::RecvError::Lagged(_)) => {
+                    // Missed some messages, but that's fine - we just need the latest
+                    continue;
+                }
+                Err(broadcast::error::RecvError::Closed) => {
+                    break;
+                }
+            }
+        }
+    };
+    Sse::new(stream).keep_alive(KeepAlive::default())
+}
 
 pub async fn run(args: &ServeArgs) -> Result<(), anyhow::Error> {
     // Determine the config file path
@@ -45,9 +74,12 @@ pub async fn run(args: &ServeArgs) -> Result<(), anyhow::Error> {
         }
     };
 
+    // Create broadcast channel for live reload
+    let (reload_tx, _) = broadcast::channel::<()>(16);
+
     // Build the site first
     println!("Building site...");
-    let result = do_build(&root_config, &base_path, parent_path.as_ref()).await?;
+    let result = do_build(&root_config, &base_path, parent_path.as_ref(), true).await?;
 
     println!(
         "Built {} documents, {} static files",
@@ -93,8 +125,8 @@ pub async fn run(args: &ServeArgs) -> Result<(), anyhow::Error> {
                 let rebuild_base = base_path.clone();
                 let rebuild_parent = parent_path.clone();
                 let rebuild_output = result.output_dir.clone();
-                let rebuild_theme = result.theme_path.clone();
                 let pagefind_config = theme_config.pagefind.clone();
+                let watcher_reload_tx = reload_tx.clone();
 
                 Some(tokio::task::spawn_blocking(move || {
                     while let Some(event) = watcher.recv() {
@@ -108,8 +140,8 @@ pub async fn run(args: &ServeArgs) -> Result<(), anyhow::Error> {
                                     .build()
                                     .expect("Failed to create runtime");
 
-                                rt.block_on(async {
-                                    match do_build(&rebuild_config, &rebuild_base, rebuild_parent.as_ref()).await {
+                                let rebuild_succeeded = rt.block_on(async {
+                                    match do_build(&rebuild_config, &rebuild_base, rebuild_parent.as_ref(), true).await {
                                         Ok(result) => {
                                             println!(
                                                 "Rebuilt {} documents, {} static files",
@@ -120,12 +152,19 @@ pub async fn run(args: &ServeArgs) -> Result<(), anyhow::Error> {
                                                 Ok(count) => println!("Re-indexed {} pages", count),
                                                 Err(e) => eprintln!("Search index error: {}", e),
                                             }
+                                            true
                                         }
                                         Err(e) => {
                                             eprintln!("Build error: {}", e);
+                                            false
                                         }
                                     }
                                 });
+
+                                // Notify connected browsers to reload
+                                if rebuild_succeeded {
+                                    let _ = watcher_reload_tx.send(());
+                                }
                             }
                             WatchEvent::Error(e) => {
                                 eprintln!("Watch error: {}", e);
@@ -146,7 +185,11 @@ pub async fn run(args: &ServeArgs) -> Result<(), anyhow::Error> {
     // Create the static file server
     let serve_dir = ServeDir::new(&result.output_dir).append_index_html_on_directories(true);
 
-    let app = Router::new().fallback_service(serve_dir);
+    // Build router with SSE endpoint for live reload
+    let app = Router::new()
+        .route("/_undox/live-reload", get(live_reload_handler))
+        .with_state(reload_tx)
+        .fallback_service(serve_dir);
 
     // Parse the address
     let addr: SocketAddr = format!("{}:{}", args.bind, args.port).parse()?;
@@ -181,8 +224,11 @@ async fn do_build(
     config: &RootConfig,
     base_path: &PathBuf,
     parent_path: Option<&PathBuf>,
+    dev_mode: bool,
 ) -> Result<crate::build::BuildResult, anyhow::Error> {
-    let mut builder = Builder::new(config.clone(), base_path.clone());
+    let mut builder = Builder::new(config.clone(), base_path.clone())
+        .with_dev_mode(dev_mode)
+        .with_live_reload(config.dev.live_reload);
     if let Some(parent_path) = parent_path {
         builder = builder.with_theme_base_path(parent_path.clone());
     }
