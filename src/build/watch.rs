@@ -13,7 +13,7 @@ use notify::{
     Config as NotifyConfig, EventKind, PollWatcher, RecommendedWatcher, RecursiveMode, Watcher,
 };
 use notify_debouncer_full::{
-    DebounceEventResult, Debouncer, FileIdMap, RecommendedCache, new_debouncer, new_debouncer_opt,
+    DebounceEventResult, Debouncer, RecommendedCache, new_debouncer, new_debouncer_opt,
 };
 
 use super::cache::ChangeKind;
@@ -212,11 +212,11 @@ impl FileWatcher {
             let poll_interval = Duration::from_millis(config.poll_interval_ms);
             let notify_config = NotifyConfig::default().with_poll_interval(poll_interval);
 
-            let mut debouncer = new_debouncer_opt::<_, PollWatcher, _>(
+            let mut debouncer = new_debouncer_opt::<_, PollWatcher, RecommendedCache>(
                 debounce_timeout,
                 None,
                 callback,
-                FileIdMap::new(),
+                RecommendedCache::default(),
                 notify_config,
             )
             .map_err(WatchError::Notify)?;
