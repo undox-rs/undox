@@ -19,13 +19,13 @@ sources:
     url_prefix: /
     repo_url: "https://github.com/undox/undox"
     edit_path: "docs/"
-  - name: sub
-    title: "Subdocs"
-    git:
-      url: https://github.com/BinaryMuse/undox-subdocs
-      ref: main
-      path: content
-    url_prefix: /sub
+#  - name: sub
+#    title: "Subdocs"
+#    git:
+#      url: https://github.com/BinaryMuse/undox-subdocs
+#      ref: main
+#      path: content
+#    url_prefix: /sub
 
 markdown:
   extensions:
