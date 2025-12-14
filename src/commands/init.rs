@@ -29,7 +29,7 @@ pub async fn run(args: &InitArgs) -> Result<(), anyhow::Error> {
             output: "_site".into(),
         },
         sources: vec![],
-        theme: ThemeConfig::Default,
+        theme: ThemeConfig::default(),
     });
 
     println!("Initializing project in {}", path.display());

@@ -41,6 +41,7 @@ impl Renderer {
         tera_context.insert("page", &context.page);
         tera_context.insert("content", &context.content);
         tera_context.insert("nav", &context.nav);
+        tera_context.insert("theme", &context.theme);
 
         Ok(self.tera.render("page.html", &tera_context)?)
     }
@@ -53,6 +54,8 @@ pub struct PageContext {
     pub page: PageInfo,
     pub content: String,
     pub nav: Vec<NavSection>,
+    /// Theme settings from config, accessible as `theme.*` in templates
+    pub theme: serde_json::Value,
 }
 
 /// Site-level information.

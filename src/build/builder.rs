@@ -96,8 +96,11 @@ impl Builder {
             url: self.config.site.url.clone(),
         };
 
+        // Get theme settings for templates
+        let theme_settings = self.config.theme.settings.clone();
+
         for (item, source_path) in &all_items {
-            self.write_item(item, source_path, &output_dir, &renderer, &site_context, &nav, &highlighter)?;
+            self.write_item(item, source_path, &output_dir, &renderer, &site_context, &nav, &highlighter, &theme_settings)?;
         }
 
         let display_output = output_dir.canonicalize().unwrap_or(output_dir.clone());
@@ -121,6 +124,7 @@ impl Builder {
         site: &SiteContext,
         nav: &[NavSection],
         highlighter: &SyntaxHighlighter,
+        theme_settings: &serde_json::Value,
     ) -> Result<(), BuildError> {
         match item {
             ContentItem::Document(doc) => {
@@ -152,6 +156,7 @@ impl Builder {
                     },
                     content: content_html,
                     nav: nav.to_vec(),
+                    theme: theme_settings.clone(),
                 };
 
                 // Render with template
