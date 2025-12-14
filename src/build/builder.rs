@@ -7,7 +7,8 @@ use crate::config::{MarkdownConfig, RootConfig};
 use super::document::{ContentItem, Document, parse_front_matter};
 use super::highlight::SyntaxHighlighter;
 use super::render::{
-    NavLink, NavSection, PageContext, PageInfo, RenderError, Renderer, SiteContext, TocEntry,
+    ContentRenderContext, NavLink, NavSection, PageContext, PageInfo, RenderError, Renderer,
+    SiteContext, TocEntry,
 };
 use super::source::{ResolvedSource, SourceError};
 
@@ -89,7 +90,7 @@ impl Builder {
 
         // Step 3: Load renderer
         let theme_path = self.theme_path();
-        let renderer = Renderer::new(&theme_path)?;
+        let mut renderer = Renderer::new(&theme_path)?;
 
         // Step 4: Build navigation from documents
         let nav = self.build_navigation(&all_items);
@@ -118,7 +119,7 @@ impl Builder {
                 item,
                 source_path,
                 &output_dir,
-                &renderer,
+                &mut renderer,
                 &site_context,
                 &nav,
                 &highlighter,
@@ -148,7 +149,7 @@ impl Builder {
         item: &ContentItem,
         source_path: &Path,
         output_dir: &Path,
-        renderer: &Renderer,
+        renderer: &mut Renderer,
         site: &SiteContext,
         nav: &[NavSection],
         highlighter: &SyntaxHighlighter,
@@ -171,8 +172,21 @@ impl Builder {
                     .clone()
                     .unwrap_or_else(|| doc.title());
 
-                // Render markdown to HTML (without front matter) with syntax highlighting
-                let markdown_output = render_markdown(&parsed.content, highlighter, markdown_config)?;
+                // First pass: Render markdown content through Tera for macros/loops/variables
+                let content_context = ContentRenderContext {
+                    site: site.clone(),
+                    page: PageInfo {
+                        title: title.clone(),
+                        url: doc.url_path.clone(),
+                        description: parsed.front_matter.description.clone(),
+                        extra: parsed.front_matter.extra.clone(),
+                    },
+                    theme: theme_settings.clone(),
+                };
+                let tera_processed_content = renderer.render_content(&parsed.content, &content_context)?;
+
+                // Second pass: Render markdown to HTML with syntax highlighting
+                let markdown_output = render_markdown(&tera_processed_content, highlighter, markdown_config)?;
 
                 // Build page context
                 let context = PageContext {

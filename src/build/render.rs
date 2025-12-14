@@ -46,6 +46,51 @@ impl Renderer {
 
         Ok(self.tera.render("page.html", &tera_context)?)
     }
+
+    /// Render raw content (markdown) through Tera before markdown processing.
+    /// This allows markdown files to use Tera syntax like macros, loops, and variables.
+    ///
+    /// Unlike `render_str`, this method gives the content access to macros defined
+    /// in template files by dynamically adding the content as a template.
+    pub fn render_content(
+        &mut self,
+        content: &str,
+        context: &ContentRenderContext,
+    ) -> Result<String, RenderError> {
+        let mut tera_context = Context::new();
+        tera_context.insert("site", &context.site);
+        tera_context.insert("page", &context.page);
+        tera_context.insert("theme", &context.theme);
+
+        // Prepend import for macros so content can use them as `macros::name(...)`
+        // The macros.html file should exist in the theme's templates directory
+        let content_with_imports = format!(
+            "{{% import \"macros.html\" as macros %}}\n{}",
+            content
+        );
+
+        // Add the content as a temporary template so it has access to macros
+        // defined in other template files
+        const TEMP_TEMPLATE_NAME: &str = "__content_render__";
+        self.tera
+            .add_raw_template(TEMP_TEMPLATE_NAME, &content_with_imports)?;
+
+        let result = self.tera.render(TEMP_TEMPLATE_NAME, &tera_context);
+
+        // Clean up the temporary template
+        self.tera.templates.remove(TEMP_TEMPLATE_NAME);
+
+        Ok(result?)
+    }
+}
+
+/// Context available during content (markdown) rendering.
+/// This is a subset of PageContext since nav/toc aren't available yet.
+#[derive(Debug, Serialize)]
+pub struct ContentRenderContext {
+    pub site: SiteContext,
+    pub page: PageInfo,
+    pub theme: serde_json::Value,
 }
 
 /// Context passed to page templates.

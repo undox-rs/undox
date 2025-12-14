@@ -4,10 +4,7 @@ description: A static site generator for documentation with multi-repo support
 ---
 
 <p align="center">
-  <picture>
-    <source srcset="/assets/logo/wordmark_dark.png" media="(prefers-color-scheme: dark)">
-    <img src="/assets/logo/wordmark_light.png" alt="undox logo" width="360">
-  </picture>
+  {{ macros::image(light_src="./assets/logo/wordmark_light.png", dark_src="./assets/logo/wordmark_dark.png", alt="undox logo") }}
 </p>
 
 undox is a batteries-included static site generator built for documentation, with first-class support for aggregating content from multiple repositories.

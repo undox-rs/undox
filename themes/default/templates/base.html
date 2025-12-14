@@ -1,3 +1,4 @@
+{% import "macros.html" as macros %}
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -149,6 +150,19 @@
       }
 
       [data-theme="dark"] .site-logo-dark {
+        display: block;
+      }
+
+      /* Light/dark mode images (from macros::image) */
+      .macro-image-dark {
+        display: none;
+      }
+
+      [data-theme="dark"] .macro-image-light {
+        display: none;
+      }
+
+      [data-theme="dark"] .macro-image-dark {
         display: block;
       }
 

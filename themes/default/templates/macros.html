@@ -1,0 +1,10 @@
+{# Macros available in both templates and markdown content #}
+
+{#
+  Displays different images for light and dark mode.
+  Usage in markdown: {{ macros::image(light_src="...", dark_src="...", alt="...") }}
+#}
+{% macro image(light_src, dark_src, alt="") %}
+<img src="{{ light_src }}" alt="{{ alt }}" class="macro-image-light" />
+<img src="{{ dark_src }}" alt="{{ alt }}" class="macro-image-dark" />
+{% endmacro image %}
