@@ -3,7 +3,12 @@ site:
   url: "https://undox.dev"
   output: "_site"
 
-theme: default
+theme:
+  name: default
+  settings:
+    logo:
+      light: ./assets/logo/wordmark_light.png
+      dark: ./assets/logo/wordmark_dark.png
 
 sources:
   - name: docs

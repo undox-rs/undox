@@ -78,10 +78,33 @@
             font-weight: 600;
             color: var(--color-text);
             text-decoration: none;
+            display: flex;
+            align-items: center;
         }
 
         .site-title:hover {
             text-decoration: none;
+        }
+
+        .site-logo {
+            height: 32px;
+            width: auto;
+        }
+
+        .site-logo-light {
+            display: block;
+        }
+
+        .site-logo-dark {
+            display: none;
+        }
+
+        [data-theme="dark"] .site-logo-light {
+            display: none;
+        }
+
+        [data-theme="dark"] .site-logo-dark {
+            display: block;
         }
 
         .header-controls {
@@ -377,7 +400,22 @@
 </head>
 <body>
     <header class="site-header">
-        <a href="/" class="site-title">{{ site.name }}</a>
+        <a href="/" class="site-title">
+            {% if theme.logo %}
+                {% if theme.logo.light and theme.logo.dark %}
+                    <img src="{{ theme.logo.light | replace(from='./', to='/') }}" alt="{{ site.name }}" class="site-logo site-logo-light">
+                    <img src="{{ theme.logo.dark | replace(from='./', to='/') }}" alt="{{ site.name }}" class="site-logo site-logo-dark">
+                {% elif theme.logo.light %}
+                    <img src="{{ theme.logo.light | replace(from='./', to='/') }}" alt="{{ site.name }}" class="site-logo">
+                {% elif theme.logo.dark %}
+                    <img src="{{ theme.logo.dark | replace(from='./', to='/') }}" alt="{{ site.name }}" class="site-logo">
+                {% else %}
+                    {{ site.name }}
+                {% endif %}
+            {% else %}
+                {{ site.name }}
+            {% endif %}
+        </a>
         <div class="header-controls">
             {% block header_right %}{% endblock %}
             <button class="search-button" id="search-button" aria-label="Search">
