@@ -16,3 +16,13 @@ sources:
     url_prefix: /
     repo_url: "https://github.com/undox/undox"
     edit_path: "docs/"
+
+markdown:
+  extensions:
+    - definition_lists
+    - footnotes
+    - gfm
+    - heading_attributes
+    - strikethrough
+    - tables
+    - tasklists

@@ -41,6 +41,7 @@ impl Renderer {
         tera_context.insert("page", &context.page);
         tera_context.insert("content", &context.content);
         tera_context.insert("nav", &context.nav);
+        tera_context.insert("toc", &context.toc);
         tera_context.insert("theme", &context.theme);
 
         Ok(self.tera.render("page.html", &tera_context)?)
@@ -54,6 +55,8 @@ pub struct PageContext {
     pub page: PageInfo,
     pub content: String,
     pub nav: Vec<NavSection>,
+    /// Table of contents for the current page
+    pub toc: Vec<TocEntry>,
     /// Theme settings from config, accessible as `theme.*` in templates
     pub theme: serde_json::Value,
 }
@@ -94,4 +97,15 @@ pub enum NavSection {
 pub struct NavLink {
     pub title: String,
     pub url: String,
+}
+
+/// A table of contents entry for the current page.
+#[derive(Debug, Clone, Serialize)]
+pub struct TocEntry {
+    /// The heading text
+    pub text: String,
+    /// The heading id (for anchor links)
+    pub id: String,
+    /// The heading level (1-6)
+    pub level: u8,
 }

@@ -27,7 +27,9 @@
             --color-code-bg: #f5f5f5;
             --color-link: #0066cc;
             --color-link-hover: #0052a3;
-            --sidebar-width: 280px;
+            --sidebar-width: 260px;
+            --toc-width: 220px;
+            --header-height: 60px;
         }
 
         [data-theme="dark"] {
@@ -67,10 +69,36 @@
         /* Layout */
         .site-header {
             border-bottom: 1px solid var(--color-border);
-            padding: 1rem 2rem;
+            padding: 0 1.5rem;
+            height: var(--header-height);
             display: flex;
             align-items: center;
             justify-content: space-between;
+            position: sticky;
+            top: 0;
+            background: var(--color-bg);
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            padding: 0.5rem;
+            cursor: pointer;
+            color: var(--color-text);
+        }
+
+        .menu-toggle svg {
+            width: 24px;
+            height: 24px;
+            display: block;
         }
 
         .site-title {
@@ -87,7 +115,7 @@
         }
 
         .site-logo {
-            height: 32px;
+            height: 28px;
             width: auto;
         }
 
@@ -110,7 +138,7 @@
         .header-controls {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.5rem;
         }
 
         /* Search */
@@ -126,7 +154,7 @@
             gap: 0.5rem;
             font-size: 0.875rem;
             transition: border-color 0.2s, color 0.2s;
-            min-width: 180px;
+            min-width: 160px;
         }
 
         .search-button:hover {
@@ -158,13 +186,11 @@
             background: none;
             border: 1px solid var(--color-border);
             border-radius: 6px;
-            padding: 0.4rem 0.6rem;
+            padding: 0.4rem 0.5rem;
             cursor: pointer;
             color: var(--color-text-muted);
             display: flex;
             align-items: center;
-            gap: 0.4rem;
-            font-size: 0.8rem;
             transition: border-color 0.2s, color 0.2s;
         }
 
@@ -179,42 +205,159 @@
         }
 
         .theme-toggle .theme-label {
-            text-transform: capitalize;
+            display: none;
         }
 
         .main-wrapper {
             display: flex;
-            min-height: calc(100vh - 60px);
+            min-height: calc(100vh - var(--header-height));
         }
 
+        /* Left Sidebar */
         .sidebar {
             width: var(--sidebar-width);
             border-right: 1px solid var(--color-border);
-            padding: 1.5rem;
+            padding: 1.5rem 1rem;
             position: sticky;
-            top: 0;
-            height: calc(100vh - 60px);
+            top: var(--header-height);
+            height: calc(100vh - var(--header-height));
             overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            top: var(--header-height);
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 90;
+        }
+
+        /* Content Area */
+        .content-wrapper {
+            flex: 1;
+            min-width: 0;
+            display: flex;
         }
 
         .content {
             flex: 1;
+            min-width: 0;
             max-width: 800px;
-            padding: 2rem 3rem;
+            padding: 2rem;
         }
 
-        /* Navigation */
-        .nav-section {
-            margin-bottom: 1.5rem;
+        /* Right TOC Sidebar */
+        .toc-sidebar {
+            width: var(--toc-width);
+            padding: 1.5rem 1rem;
+            position: sticky;
+            top: var(--header-height);
+            height: calc(100vh - var(--header-height));
+            overflow-y: auto;
+            flex-shrink: 0;
         }
 
-        .nav-section-title {
+        .toc-title {
             font-size: 0.75rem;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             color: var(--color-text-muted);
+            margin-bottom: 0.75rem;
+        }
+
+        .toc-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .toc-item {
+            margin: 0.25rem 0;
+        }
+
+        .toc-link {
+            display: block;
+            padding: 0.2rem 0;
+            color: var(--color-text-muted);
+            font-size: 0.8rem;
+            line-height: 1.4;
+            border-left: 2px solid transparent;
+            padding-left: 0.75rem;
+            margin-left: -0.75rem;
+        }
+
+        .toc-link:hover {
+            color: var(--color-text);
+            text-decoration: none;
+        }
+
+        .toc-link.active {
+            color: var(--color-link);
+            border-left-color: var(--color-link);
+        }
+
+        .toc-level-3 { padding-left: calc(0.75rem + 0.75rem); }
+        .toc-level-4 { padding-left: calc(0.75rem + 1.5rem); }
+        .toc-level-5 { padding-left: calc(0.75rem + 2.25rem); }
+        .toc-level-6 { padding-left: calc(0.75rem + 3rem); }
+
+        /* Mobile TOC (above content) */
+        .toc-mobile {
+            display: none;
+            border-bottom: 1px solid var(--color-border);
+            padding: 1rem;
+            background: var(--color-code-bg);
+        }
+
+        .toc-mobile-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            color: var(--color-text);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .toc-mobile-toggle svg {
+            width: 16px;
+            height: 16px;
+            transition: transform 0.2s;
+        }
+
+        .toc-mobile.open .toc-mobile-toggle svg {
+            transform: rotate(180deg);
+        }
+
+        .toc-mobile-content {
+            display: none;
+            padding-top: 0.75rem;
+        }
+
+        .toc-mobile.open .toc-mobile-content {
+            display: block;
+        }
+
+        /* Navigation */
+        .nav-section {
+            margin-bottom: 1.25rem;
+        }
+
+        .nav-section-title {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--color-text-muted);
             margin-bottom: 0.5rem;
+            padding: 0 0.5rem;
         }
 
         .nav-list {
@@ -224,15 +367,15 @@
         }
 
         .nav-item {
-            margin: 0.25rem 0;
+            margin: 0.125rem 0;
         }
 
         .nav-link {
             display: block;
-            padding: 0.25rem 0.5rem;
+            padding: 0.3rem 0.5rem;
             border-radius: 4px;
             color: var(--color-text);
-            font-size: 0.9rem;
+            font-size: 0.875rem;
         }
 
         .nav-link:hover {
@@ -243,6 +386,30 @@
         .nav-link.active {
             background: var(--color-code-bg);
             font-weight: 500;
+            color: var(--color-link);
+        }
+
+        /* Header anchor (permalink) */
+        .header-anchor {
+            opacity: 0;
+            margin-left: 0.5em;
+            color: var(--color-text-muted);
+            text-decoration: none;
+            font-weight: 400;
+        }
+
+        .content h1:hover .header-anchor,
+        .content h2:hover .header-anchor,
+        .content h3:hover .header-anchor,
+        .content h4:hover .header-anchor,
+        .content h5:hover .header-anchor,
+        .content h6:hover .header-anchor {
+            opacity: 1;
+        }
+
+        .header-anchor:hover {
+            color: var(--color-link);
+            text-decoration: none;
         }
 
         /* Content styles */
@@ -263,6 +430,12 @@
         .content h3 {
             font-size: 1.25rem;
             margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .content h4 {
+            font-size: 1.1rem;
+            margin-top: 1.25rem;
             margin-bottom: 0.5rem;
         }
 
@@ -320,6 +493,70 @@
         .content th {
             background: var(--color-code-bg);
             font-weight: 600;
+        }
+
+        .content img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Responsive: Tablet - hide TOC sidebar, show mobile TOC */
+        @media (max-width: 1100px) {
+            .toc-sidebar {
+                display: none;
+            }
+
+            .toc-mobile {
+                display: block;
+            }
+        }
+
+        /* Responsive: Mobile - sidebar becomes slideout */
+        @media (max-width: 768px) {
+            .menu-toggle {
+                display: flex;
+            }
+
+            .search-button {
+                min-width: auto;
+            }
+
+            .search-button span,
+            .search-button kbd {
+                display: none;
+            }
+
+            .sidebar {
+                position: fixed;
+                top: var(--header-height);
+                left: 0;
+                bottom: 0;
+                height: auto;
+                z-index: 95;
+                background: var(--color-bg);
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .sidebar-overlay.open {
+                display: block;
+            }
+
+            .content {
+                padding: 1.5rem 1rem;
+            }
+
+            .content h1 {
+                font-size: 1.75rem;
+            }
+
+            .content h2 {
+                font-size: 1.35rem;
+            }
         }
 
         /* Syntax highlighting (autumnus/tree-sitter) */
@@ -400,22 +637,29 @@
 </head>
 <body>
     <header class="site-header">
-        <a href="/" class="site-title">
-            {% if theme.logo %}
-                {% if theme.logo.light and theme.logo.dark %}
-                    <img src="{{ theme.logo.light | replace(from='./', to='/') }}" alt="{{ site.name }}" class="site-logo site-logo-light">
-                    <img src="{{ theme.logo.dark | replace(from='./', to='/') }}" alt="{{ site.name }}" class="site-logo site-logo-dark">
-                {% elif theme.logo.light %}
-                    <img src="{{ theme.logo.light | replace(from='./', to='/') }}" alt="{{ site.name }}" class="site-logo">
-                {% elif theme.logo.dark %}
-                    <img src="{{ theme.logo.dark | replace(from='./', to='/') }}" alt="{{ site.name }}" class="site-logo">
+        <div class="header-left">
+            <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <a href="/" class="site-title">
+                {% if theme.logo %}
+                    {% if theme.logo.light and theme.logo.dark %}
+                        <img src="{{ theme.logo.light | replace(from='./', to='/') }}" alt="{{ site.name }}" class="site-logo site-logo-light">
+                        <img src="{{ theme.logo.dark | replace(from='./', to='/') }}" alt="{{ site.name }}" class="site-logo site-logo-dark">
+                    {% elif theme.logo.light %}
+                        <img src="{{ theme.logo.light | replace(from='./', to='/') }}" alt="{{ site.name }}" class="site-logo">
+                    {% elif theme.logo.dark %}
+                        <img src="{{ theme.logo.dark | replace(from='./', to='/') }}" alt="{{ site.name }}" class="site-logo">
+                    {% else %}
+                        {{ site.name }}
+                    {% endif %}
                 {% else %}
                     {{ site.name }}
                 {% endif %}
-            {% else %}
-                {{ site.name }}
-            {% endif %}
-        </a>
+            </a>
+        </div>
         <div class="header-controls">
             {% block header_right %}{% endblock %}
             <button class="search-button" id="search-button" aria-label="Search">
@@ -441,8 +685,10 @@
     </header>
 
     <div class="main-wrapper">
+        <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
         {% block sidebar %}
-        <nav class="sidebar">
+        <nav class="sidebar" id="sidebar">
             {% for item in nav %}
                 {% if item.section %}
                 <div class="nav-section">
@@ -472,12 +718,50 @@
         </nav>
         {% endblock %}
 
-        <main class="content">
-            {% block content %}{% endblock %}
-        </main>
+        <div class="content-wrapper">
+            <main class="content">
+                {% if toc | length > 1 %}
+                <div class="toc-mobile" id="toc-mobile">
+                    <button class="toc-mobile-toggle" id="toc-mobile-toggle">
+                        <span>On this page</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div class="toc-mobile-content">
+                        <ul class="toc-list">
+                            {% for entry in toc %}
+                            <li class="toc-item">
+                                <a href="#{{ entry.id }}" class="toc-link toc-level-{{ entry.level }}">{{ entry.text }}</a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% block content %}{% endblock %}
+            </main>
+
+            {% if toc | length > 1 %}
+            <aside class="toc-sidebar">
+                <div class="toc-title">On this page</div>
+                <nav>
+                    <ul class="toc-list">
+                        {% for entry in toc %}
+                        <li class="toc-item">
+                            <a href="#{{ entry.id }}" class="toc-link toc-level-{{ entry.level }}">{{ entry.text }}</a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </nav>
+            </aside>
+            {% endif %}
+        </div>
     </div>
 
     <script>
+        // Theme toggle
         (function() {
             const toggle = document.getElementById('theme-toggle');
             const label = toggle.querySelector('.theme-label');
@@ -528,6 +812,102 @@
                     applyTheme('system');
                 }
             });
+        })();
+
+        // Mobile sidebar toggle
+        (function() {
+            const menuToggle = document.getElementById('menu-toggle');
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+
+            function openSidebar() {
+                sidebar.classList.add('open');
+                overlay.classList.add('open');
+                document.body.style.overflow = 'hidden';
+            }
+
+            function closeSidebar() {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('open');
+                document.body.style.overflow = '';
+            }
+
+            menuToggle.addEventListener('click', () => {
+                if (sidebar.classList.contains('open')) {
+                    closeSidebar();
+                } else {
+                    openSidebar();
+                }
+            });
+
+            overlay.addEventListener('click', closeSidebar);
+
+            // Close on escape
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && sidebar.classList.contains('open')) {
+                    closeSidebar();
+                }
+            });
+
+            // Close when clicking a nav link (on mobile)
+            sidebar.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', () => {
+                    if (window.innerWidth <= 768) {
+                        closeSidebar();
+                    }
+                });
+            });
+        })();
+
+        // Mobile TOC toggle
+        (function() {
+            const tocMobile = document.getElementById('toc-mobile');
+            const tocToggle = document.getElementById('toc-mobile-toggle');
+
+            if (tocMobile && tocToggle) {
+                tocToggle.addEventListener('click', () => {
+                    tocMobile.classList.toggle('open');
+                });
+
+                // Close when clicking a TOC link
+                tocMobile.querySelectorAll('.toc-link').forEach(link => {
+                    link.addEventListener('click', () => {
+                        tocMobile.classList.remove('open');
+                    });
+                });
+            }
+        })();
+
+        // TOC scroll spy
+        (function() {
+            const tocLinks = document.querySelectorAll('.toc-link');
+            if (tocLinks.length === 0) return;
+
+            const headings = [];
+            tocLinks.forEach(link => {
+                const id = link.getAttribute('href').slice(1);
+                const heading = document.getElementById(id);
+                if (heading) headings.push({ id, element: heading });
+            });
+
+            function updateActiveLink() {
+                const scrollPos = window.scrollY + 100;
+
+                let activeId = headings[0]?.id;
+                for (const { id, element } of headings) {
+                    if (element.offsetTop <= scrollPos) {
+                        activeId = id;
+                    }
+                }
+
+                tocLinks.forEach(link => {
+                    const linkId = link.getAttribute('href').slice(1);
+                    link.classList.toggle('active', linkId === activeId);
+                });
+            }
+
+            window.addEventListener('scroll', updateActiveLink, { passive: true });
+            updateActiveLink();
         })();
     </script>
 
@@ -597,7 +977,6 @@
             min-height: 0 !important;
         }
         .pagefind-ui .pagefind-ui__form::before {
-            /* Adjust icon position for smaller input (48px vs default 64px) */
             top: calc(15px * var(--pagefind-ui-scale));
         }
         .pagefind-ui .pagefind-ui__search-input {
@@ -606,7 +985,6 @@
             flex-shrink: 0 !important;
         }
         .pagefind-ui .pagefind-ui__search-clear {
-            /* Adjust clear button for smaller input */
             top: calc(4px * var(--pagefind-ui-scale));
             height: calc(40px * var(--pagefind-ui-scale));
         }

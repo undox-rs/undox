@@ -2,11 +2,13 @@ use std::path::{Path, PathBuf};
 
 use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd, html};
 
-use crate::config::RootConfig;
+use crate::config::{MarkdownConfig, RootConfig};
 
-use super::document::{parse_front_matter, ContentItem, Document};
+use super::document::{ContentItem, Document, parse_front_matter};
 use super::highlight::SyntaxHighlighter;
-use super::render::{NavLink, NavSection, PageContext, PageInfo, RenderError, Renderer, SiteContext};
+use super::render::{
+    NavLink, NavSection, PageContext, PageInfo, RenderError, Renderer, SiteContext, TocEntry,
+};
 use super::source::{ResolvedSource, SourceError};
 
 #[derive(thiserror::Error, Debug)]
@@ -19,6 +21,9 @@ pub enum BuildError {
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("invalid markdown extension: {0}")]
+    InvalidMarkdownExtension(String),
 }
 
 pub struct BuildResult {
@@ -56,7 +61,10 @@ impl Builder {
         let mut all_items: Vec<(ContentItem, PathBuf)> = Vec::new();
         for source in &resolved_sources {
             let content = source.discover_content()?;
-            let display_path = source.local_path.canonicalize().unwrap_or(source.local_path.clone());
+            let display_path = source
+                .local_path
+                .canonicalize()
+                .unwrap_or(source.local_path.clone());
             println!(
                 "  - {}: {} item(s) in {}",
                 source.config.name,
@@ -74,7 +82,10 @@ impl Builder {
             .filter(|(item, _)| matches!(item, ContentItem::Document(_)))
             .count();
         let static_count = all_items.len() - doc_count;
-        println!("Found {} document(s) and {} static file(s)", doc_count, static_count);
+        println!(
+            "Found {} document(s) and {} static file(s)",
+            doc_count, static_count
+        );
 
         // Step 3: Load renderer
         let theme_path = self.theme_path();
@@ -99,12 +110,29 @@ impl Builder {
         // Get theme settings for templates
         let theme_settings = self.config.theme.settings.clone();
 
+        // Get markdown config for markdown processing
+        let markdown_config = self.config.markdown.clone();
+
         for (item, source_path) in &all_items {
-            self.write_item(item, source_path, &output_dir, &renderer, &site_context, &nav, &highlighter, &theme_settings)?;
+            self.write_item(
+                item,
+                source_path,
+                &output_dir,
+                &renderer,
+                &site_context,
+                &nav,
+                &highlighter,
+                &theme_settings,
+                &markdown_config,
+            )?;
         }
 
         let display_output = output_dir.canonicalize().unwrap_or(output_dir.clone());
-        println!("Wrote {} file(s) to {}", all_items.len(), display_output.display());
+        println!(
+            "Wrote {} file(s) to {}",
+            all_items.len(),
+            display_output.display()
+        );
 
         Ok(BuildResult {
             output_dir,
@@ -125,6 +153,7 @@ impl Builder {
         nav: &[NavSection],
         highlighter: &SyntaxHighlighter,
         theme_settings: &serde_json::Value,
+        markdown_config: &MarkdownConfig,
     ) -> Result<(), BuildError> {
         match item {
             ContentItem::Document(doc) => {
@@ -143,7 +172,7 @@ impl Builder {
                     .unwrap_or_else(|| doc.title());
 
                 // Render markdown to HTML (without front matter) with syntax highlighting
-                let content_html = render_markdown(&parsed.content, highlighter);
+                let markdown_output = render_markdown(&parsed.content, highlighter, markdown_config)?;
 
                 // Build page context
                 let context = PageContext {
@@ -154,8 +183,9 @@ impl Builder {
                         description: parsed.front_matter.description.clone(),
                         extra: parsed.front_matter.extra.clone(),
                     },
-                    content: content_html,
+                    content: markdown_output.html,
                     nav: nav.to_vec(),
+                    toc: markdown_output.toc,
                     theme: theme_settings.clone(),
                 };
 
@@ -189,9 +219,7 @@ impl Builder {
         self.config
             .sources
             .iter()
-            .map(|source_config| {
-                ResolvedSource::resolve(source_config.clone(), &self.base_path)
-            })
+            .map(|source_config| ResolvedSource::resolve(source_config.clone(), &self.base_path))
             .collect()
     }
 
@@ -247,7 +275,8 @@ impl Builder {
         docs.sort_by(|a, b| a.url_path.cmp(&b.url_path));
 
         // Group by top-level directory
-        let mut sections: std::collections::HashMap<String, Vec<NavLink>> = std::collections::HashMap::new();
+        let mut sections: std::collections::HashMap<String, Vec<NavLink>> =
+            std::collections::HashMap::new();
         let mut root_links: Vec<NavLink> = Vec::new();
 
         for doc in docs {
@@ -309,13 +338,30 @@ fn title_case(s: &str) -> String {
 }
 
 /// Render markdown to HTML using pulldown-cmark with syntax highlighting.
-fn render_markdown(markdown: &str, highlighter: &SyntaxHighlighter) -> String {
-    // Enable common extensions
-    let options = Options::ENABLE_TABLES
-        | Options::ENABLE_FOOTNOTES
-        | Options::ENABLE_STRIKETHROUGH
-        | Options::ENABLE_TASKLISTS
-        | Options::ENABLE_HEADING_ATTRIBUTES;
+/// Result of rendering markdown, containing both HTML and table of contents.
+struct MarkdownOutput {
+    html: String,
+    toc: Vec<TocEntry>,
+}
+
+fn render_markdown(
+    markdown: &str,
+    highlighter: &SyntaxHighlighter,
+    markdown_config: &MarkdownConfig,
+) -> Result<MarkdownOutput, BuildError> {
+    let mut options = Options::empty();
+    for extension in &markdown_config.extensions {
+        match extension.as_str() {
+            "definition_lists" => options.insert(Options::ENABLE_DEFINITION_LIST),
+            "footnotes" => options.insert(Options::ENABLE_FOOTNOTES),
+            "gfm" => options.insert(Options::ENABLE_GFM),
+            "heading_attributes" => options.insert(Options::ENABLE_HEADING_ATTRIBUTES),
+            "strikethrough" => options.insert(Options::ENABLE_STRIKETHROUGH),
+            "tables" => options.insert(Options::ENABLE_TABLES),
+            "tasklists" => options.insert(Options::ENABLE_TASKLISTS),
+            other => return Err(BuildError::InvalidMarkdownExtension(other.to_string())),
+        }
+    }
 
     let parser = Parser::new_ext(markdown, options);
 
@@ -323,9 +369,89 @@ fn render_markdown(markdown: &str, highlighter: &SyntaxHighlighter) -> String {
     let mut in_code_block = false;
     let mut code_language = String::new();
     let mut code_content = String::new();
+    // Intercept headings to add id attributes for permalinks
+    struct HeadingState {
+        level: pulldown_cmark::HeadingLevel,
+        classes: Vec<String>,
+        attrs: Vec<(String, Option<String>)>,
+    }
+    let mut in_heading: Option<HeadingState> = None;
+    let mut used_heading_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut heading_text = String::new();
+    let mut toc_entries: Vec<TocEntry> = Vec::new();
 
     let events: Vec<Event> = parser
         .flat_map(|event| match event {
+            Event::Start(Tag::Heading { level, ref id, ref classes, ref attrs }) => {
+                // If heading already has an id, just pass it through
+                if let Some(existing_id) = id {
+                    used_heading_ids.insert(existing_id.to_string());
+                    return vec![event];
+                }
+                // Otherwise, capture the heading to generate an id
+                in_heading = Some(HeadingState {
+                    level,
+                    classes: classes.iter().map(|c| c.to_string()).collect(),
+                    attrs: attrs.iter().map(|(k, v)| (k.to_string(), v.as_ref().map(|v| v.to_string()))).collect(),
+                });
+                heading_text.clear();
+                vec![]
+            }
+            Event::End(TagEnd::Heading(_)) if in_heading.is_some() => {
+                let state = in_heading.take().unwrap();
+
+                // Generate a unique id from the heading text
+                let base_id = slugify(&heading_text);
+                let mut id = base_id.clone();
+                let mut suffix = 1;
+                while used_heading_ids.contains(&id) {
+                    id = format!("{}-{}", base_id, suffix);
+                    suffix += 1;
+                }
+                used_heading_ids.insert(id.clone());
+
+                // Add to table of contents
+                toc_entries.push(TocEntry {
+                    text: heading_text.clone(),
+                    id: id.clone(),
+                    level: state.level as u8,
+                });
+
+                // Build class attribute if there are classes
+                let class_attr = if state.classes.is_empty() {
+                    String::new()
+                } else {
+                    format!(" class=\"{}\"", state.classes.join(" "))
+                };
+
+                // Build extra attributes
+                let extra_attrs = state.attrs
+                    .iter()
+                    .map(|(k, v)| match v {
+                        Some(val) => format!(" {}=\"{}\"", k, val),
+                        None => format!(" {}", k),
+                    })
+                    .collect::<String>();
+
+                // Emit the heading with id and permalink
+                let permalink = format!(
+                    "<a class=\"header-anchor\" href=\"#{}\" aria-label=\"Link to this heading\">#</a>",
+                    id
+                );
+                vec![Event::Html(
+                    format!(
+                        "<h{} id=\"{}\"{}{}>{} {}</h{}>",
+                        state.level as usize,
+                        id,
+                        class_attr,
+                        extra_attrs,
+                        heading_text,
+                        permalink,
+                        state.level as usize,
+                    )
+                    .into(),
+                )]
+            }
             Event::Start(Tag::CodeBlock(kind)) => {
                 in_code_block = true;
                 code_language = match kind {
@@ -343,7 +469,11 @@ fn render_markdown(markdown: &str, highlighter: &SyntaxHighlighter) -> String {
             }
             Event::Text(text) if in_code_block => {
                 code_content.push_str(&text);
-                vec![] // Accumulate, don't emit yet
+                vec![]
+            }
+            Event::Text(text) if in_heading.is_some() => {
+                heading_text.push_str(&text);
+                vec![]
             }
             _ => vec![event],
         })
@@ -352,7 +482,10 @@ fn render_markdown(markdown: &str, highlighter: &SyntaxHighlighter) -> String {
     let mut html_output = String::new();
     html::push_html(&mut html_output, events.into_iter());
 
-    html_output
+    Ok(MarkdownOutput {
+        html: html_output,
+        toc: toc_entries,
+    })
 }
 
 /// Convert a URL path to a file path in the output directory.
@@ -379,4 +512,11 @@ pub fn base_path_from_config(config_path: &Path) -> PathBuf {
         .parent()
         .map(|p| p.to_path_buf())
         .unwrap_or_else(|| PathBuf::from("."))
+}
+
+/// Convert a string to a slug.
+fn slugify(s: &str) -> String {
+    s.to_lowercase()
+        .replace(" ", "-")
+        .replace(|c: char| !c.is_alphanumeric() && c != '-', "")
 }

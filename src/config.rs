@@ -98,6 +98,8 @@ pub struct RootConfig {
     pub sources: Vec<SourceConfig>,
     #[serde(default)]
     pub theme: ThemeConfig,
+    #[serde(default)]
+    pub markdown: MarkdownConfig,
 }
 
 /// Child configuration - used in source repos to point back to the parent site.
@@ -200,6 +202,37 @@ pub struct GitConfig {
     /// Whether to use sparse checkout
     #[serde(default)]
     pub sparse: bool,
+}
+
+// =============================================================================
+// Markdown configuration
+// =============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MarkdownConfig {
+    /// Extensions to enable for markdown processing
+    #[serde(default = "default_markdown_extensions")]
+    pub extensions: Vec<String>,
+}
+
+fn default_markdown_extensions() -> Vec<String> {
+    vec![
+        "definition_lists".to_string(),
+        "footnotes".to_string(),
+        "gfm".to_string(),
+        "heading_attributes".to_string(),
+        "strikethrough".to_string(),
+        "tables".to_string(),
+        "tasklists".to_string(),
+    ]
+}
+
+impl Default for MarkdownConfig {
+    fn default() -> Self {
+        Self {
+            extensions: default_markdown_extensions(),
+        }
+    }
 }
 
 // =============================================================================

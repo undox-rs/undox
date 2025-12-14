@@ -1,6 +1,6 @@
 use crate::{
     InitArgs,
-    config::{Config, RootConfig, SiteConfig, ThemeConfig},
+    config::{Config, MarkdownConfig, RootConfig, SiteConfig, ThemeConfig},
 };
 
 pub async fn run(args: &InitArgs) -> Result<(), anyhow::Error> {
@@ -30,6 +30,7 @@ pub async fn run(args: &InitArgs) -> Result<(), anyhow::Error> {
         },
         sources: vec![],
         theme: ThemeConfig::default(),
+        markdown: MarkdownConfig::default(),
     });
 
     println!("Initializing project in {}", path.display());
