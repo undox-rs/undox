@@ -9,6 +9,9 @@ description: A static site generator for documentation with multi-repo support
 
 undox is a batteries-included static site generator built for documentation, with first-class support for aggregating content from multiple repositories.
 
+> [!WARNING]
+> undox is in very early development. Expect breaking changes and missing features.
+
 ## Why undox?
 
 - **Multi-repo first**: Designed from the ground up for combining docs from multiple repositories into a unified site

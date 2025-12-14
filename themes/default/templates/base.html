@@ -610,6 +610,62 @@
         }
       }
 
+      /* GFM Alerts */
+      .markdown-alert-note,
+      .markdown-alert-tip,
+      .markdown-alert-important,
+      .markdown-alert-warning,
+      .markdown-alert-caution {
+        padding: 1rem 1.25rem;
+        border-radius: 6px;
+        margin: 1rem 0;
+      }
+
+      .markdown-alert-note {
+        background: rgba(56, 139, 253, 0.1);
+        border-left: 4px solid #388bfd;
+      }
+
+      .markdown-alert-tip {
+        background: rgba(46, 160, 67, 0.1);
+        border-left: 4px solid #2ea043;
+      }
+
+      .markdown-alert-important {
+        background: rgba(137, 87, 229, 0.1);
+        border-left: 4px solid #8957e5;
+      }
+
+      .markdown-alert-warning {
+        background: rgba(187, 128, 9, 0.1);
+        border-left: 4px solid #bb8009;
+      }
+
+      .markdown-alert-caution {
+        background: rgba(248, 81, 73, 0.1);
+        border-left: 4px solid #f85149;
+      }
+
+      [data-theme="dark"] .markdown-alert-note {
+        background: rgba(56, 139, 253, 0.15);
+      }
+
+      [data-theme="dark"] .markdown-alert-tip {
+        background: rgba(46, 160, 67, 0.15);
+      }
+
+      [data-theme="dark"] .markdown-alert-important {
+        background: rgba(137, 87, 229, 0.15);
+      }
+
+      [data-theme="dark"] .markdown-alert-warning {
+        background: rgba(187, 128, 9, 0.15);
+      }
+
+      [data-theme="dark"] .markdown-alert-caution {
+        background: rgba(248, 81, 73, 0.15);
+      }
+
       /* Syntax highlighting (autumnus/tree-sitter) */
       pre.athl {
         background: #24292e;
