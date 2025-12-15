@@ -214,12 +214,14 @@ impl ChildConfig {
         for (i, source) in sources.iter_mut().enumerate() {
             if i == source_index {
                 // This is the child's source - point to local content
-                let content_path = if child_base_path.join("content").is_dir() {
+                let resolved_content_path = if child_base_path.join("content").is_dir() {
                     child_base_path.join("content")
                 } else {
                     child_base_path.to_path_buf()
                 };
-                source.location = SourceLocation::Local { path: content_path };
+                source.location = SourceLocation::ContentPath {
+                    content_path: resolved_content_path,
+                };
 
                 // Apply overrides from child config
                 if let Some(repo_url) = &self.overrides.repo_url {
@@ -233,10 +235,10 @@ impl ChildConfig {
                 }
             } else {
                 // Other sources - fix local paths to be absolute relative to parent
-                if let SourceLocation::Local { path } = &source.location {
-                    if path.is_relative() {
-                        source.location = SourceLocation::Local {
-                            path: parent_path.join(path),
+                if let SourceLocation::ContentPath { content_path } = &source.location {
+                    if content_path.is_relative() {
+                        source.location = SourceLocation::ContentPath {
+                            content_path: parent_path.join(content_path),
                         };
                     }
                 }
@@ -331,9 +333,11 @@ pub struct SourceConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum SourceLocation {
-    /// Local filesystem path
-    Local { path: PathBuf },
-    /// Remote git repository
+    /// Local content directory (content belongs to the root config)
+    ContentPath { content_path: PathBuf },
+    /// Local sub-docs directory (has its own undox.yaml, like git but local)
+    LocalPath { path: PathBuf },
+    /// Remote git repository (sub-docs with their own config)
     Git { git: GitConfig },
 }
 

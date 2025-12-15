@@ -1,9 +1,18 @@
 use std::path::{Path, PathBuf};
 
-use crate::config::{SourceConfig, SourceLocation};
+use serde::Deserialize;
+
+use crate::config::{NavConfig, SourceConfig, SourceLocation};
 use crate::git::GitFetcher;
 
-use super::document::{ContentItem, Document, StaticFile};
+use super::document::{ContentItem, Document, StaticFile, parse_front_matter};
+
+/// Partial config for local sub-docs (just the fields we need)
+#[derive(Deserialize)]
+struct LocalSubdocsConfig {
+    content_path: Option<PathBuf>,
+    nav: Option<NavConfig>,
+}
 
 // =============================================================================
 // Errors
@@ -52,13 +61,32 @@ impl ResolvedSource {
     /// For local sources, this validates the path exists.
     /// For git sources, this clones/fetches the repo to the cache directory.
     pub fn resolve(
-        config: SourceConfig,
+        mut config: SourceConfig,
         base_path: &Path,
         cache_dir: &Path,
     ) -> Result<Self, SourceError> {
         let local_path = match &config.location {
-            SourceLocation::Local { path } => {
+            SourceLocation::ContentPath { content_path } => {
                 // Resolve relative paths against base_path
+                let resolved = if content_path.is_relative() {
+                    base_path.join(content_path)
+                } else {
+                    content_path.clone()
+                };
+
+                // Validate the path exists and is a directory
+                if !resolved.exists() {
+                    return Err(SourceError::PathNotFound(resolved));
+                }
+                if !resolved.is_dir() {
+                    return Err(SourceError::NotADirectory(resolved));
+                }
+
+                resolved
+            }
+            SourceLocation::LocalPath { path } => {
+                // Local sub-docs - resolve the path and look for content
+                // Similar to git sources but without fetching
                 let resolved = if path.is_relative() {
                     base_path.join(path)
                 } else {
@@ -73,7 +101,41 @@ impl ResolvedSource {
                     return Err(SourceError::NotADirectory(resolved));
                 }
 
-                resolved
+                // Check for undox.yaml to get content_path and nav
+                let child_config_path = resolved.join("undox.yaml");
+                if child_config_path.exists() {
+                    if let Ok(content) = std::fs::read_to_string(&child_config_path) {
+                        if let Ok(subdocs_config) =
+                            serde_yaml::from_str::<LocalSubdocsConfig>(&content)
+                        {
+                            // Apply nav from child config if not set in parent
+                            if config.nav.is_none() {
+                                if let Some(nav) = subdocs_config.nav {
+                                    config.nav = Some(nav);
+                                }
+                            }
+
+                            // Use content_path from child config
+                            if let Some(cp) = subdocs_config.content_path {
+                                let content_dir = resolved.join(&cp);
+                                if content_dir.exists() && content_dir.is_dir() {
+                                    return Ok(Self {
+                                        config,
+                                        local_path: content_dir,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Fallback: look for content directory
+                let content_dir = resolved.join("content");
+                if content_dir.exists() && content_dir.is_dir() {
+                    content_dir
+                } else {
+                    resolved
+                }
             }
             SourceLocation::Git { git } => {
                 // Fetch/update the git repository
@@ -156,7 +218,7 @@ impl ResolvedSource {
                 self.walk_directory(&path, &item_relative_path, items)?;
             } else if path.is_file() {
                 // Determine if this is a document or static file
-                let item = self.classify_file(&item_relative_path);
+                let item = self.classify_file(&path, &item_relative_path);
                 items.push(item);
             }
         }
@@ -165,7 +227,7 @@ impl ResolvedSource {
     }
 
     /// Classify a file as either a Document or StaticFile.
-    fn classify_file(&self, relative_path: &Path) -> ContentItem {
+    fn classify_file(&self, full_path: &Path, relative_path: &Path) -> ContentItem {
         let extension = relative_path
             .extension()
             .and_then(|e| e.to_str())
@@ -175,12 +237,20 @@ impl ResolvedSource {
 
         match extension.as_deref() {
             Some("md" | "markdown") => {
-                // It's a markdown document
+                // It's a markdown document - read and parse frontmatter for title
                 let url_path = self.path_to_url(relative_path, &url_prefix);
-                ContentItem::Document(Document::discovered(
+
+                // Read file and parse frontmatter to get title
+                let front_matter = std::fs::read_to_string(full_path)
+                    .ok()
+                    .map(|content| parse_front_matter(&content).front_matter)
+                    .unwrap_or_default();
+
+                ContentItem::Document(Document::discovered_with_front_matter(
                     self.config.name.clone(),
                     relative_path.to_path_buf(),
                     url_path,
+                    front_matter,
                 ))
             }
             _ => {
@@ -257,8 +327,8 @@ mod tests {
             repo_url: None,
             edit_path: None,
             nav: None,
-            location: SourceLocation::Local {
-                path: PathBuf::from("./docs"),
+            location: SourceLocation::ContentPath {
+                content_path: PathBuf::from("./docs"),
             },
         };
 
@@ -295,8 +365,8 @@ mod tests {
             repo_url: None,
             edit_path: None,
             nav: None,
-            location: SourceLocation::Local {
-                path: PathBuf::from("./docs"),
+            location: SourceLocation::ContentPath {
+                content_path: PathBuf::from("./docs"),
             },
         };
 
@@ -325,8 +395,8 @@ mod tests {
             repo_url: None,
             edit_path: None,
             nav: None,
-            location: SourceLocation::Local {
-                path: PathBuf::from("./docs"),
+            location: SourceLocation::ContentPath {
+                content_path: PathBuf::from("./docs"),
             },
         };
 

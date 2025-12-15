@@ -1,7 +1,8 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use serde::Serialize;
-use tera::{Context, Tera};
+use tera::{Context, Tera, Value};
 
 #[derive(thiserror::Error, Debug)]
 pub enum RenderError {
@@ -15,6 +16,8 @@ pub enum RenderError {
 /// The template renderer, wrapping Tera.
 pub struct Renderer {
     tera: Tera,
+    #[allow(dead_code)]
+    theme_path: PathBuf,
 }
 
 impl Renderer {
@@ -22,16 +25,22 @@ impl Renderer {
     pub fn new(theme_path: &Path) -> Result<Self, RenderError> {
         let templates_path = theme_path.join("templates");
         if !templates_path.exists() {
-            return Err(RenderError::ThemeNotFound(
-                theme_path.display().to_string(),
-            ));
+            return Err(RenderError::ThemeNotFound(theme_path.display().to_string()));
         }
 
         let glob = templates_path.join("**/*.html");
         let glob_str = glob.to_string_lossy();
-        let tera = Tera::new(&glob_str)?;
+        let mut tera = Tera::new(&glob_str)?;
 
-        Ok(Self { tera })
+        // Register the icon() function for inlining SVG icons
+        // Usage: {{ icon(name="search") }} or {{ icon(name="menu", class="nav-icon", size=20) }}
+        let icons_path = Arc::new(theme_path.join("static/icons"));
+        tera.register_function("icon", MakeIconFunction(icons_path));
+
+        Ok(Self {
+            tera,
+            theme_path: theme_path.to_path_buf(),
+        })
     }
 
     /// Render a page with the given context.
@@ -67,10 +76,7 @@ impl Renderer {
 
         // Prepend import for macros so content can use them as `macros::name(...)`
         // The macros.html file should exist in the theme's templates directory
-        let content_with_imports = format!(
-            "{{% import \"macros.html\" as macros %}}\n{}",
-            content
-        );
+        let content_with_imports = format!("{{% import \"macros.html\" as macros %}}\n{}", content);
 
         // Add the content as a temporary template so it has access to macros
         // defined in other template files
@@ -190,4 +196,68 @@ pub struct UndoxContext {
     pub live_reload: bool,
     /// The undox version
     pub version: String,
+}
+
+struct MakeIconFunction(Arc<PathBuf>);
+
+impl tera::Function for MakeIconFunction {
+    fn call(&self, args: &std::collections::HashMap<String, Value>) -> tera::Result<Value> {
+        Self::make_icon(&self.0, args)
+    }
+
+    fn is_safe(&self) -> bool {
+        true
+    }
+}
+
+impl MakeIconFunction {
+    /// Create the icon() Tera function for inlining SVG icons.
+    ///
+    /// Usage in templates:
+    ///   {{ icon(name="search") }}
+    ///   {{ icon(name="menu", class="nav-icon") }}
+    ///   {{ icon(name="star", size=20) }}
+    fn make_icon(
+        icons_path: &Arc<PathBuf>,
+        args: &std::collections::HashMap<String, Value>,
+    ) -> tera::Result<Value> {
+        // Get required "name" argument
+        let name = args
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| tera::Error::msg("icon() requires a 'name' argument"))?;
+
+        // Get optional "class" argument
+        let class = args.get("class").and_then(|v| v.as_str());
+
+        // Get optional "size" argument (defaults to 24)
+        let size = args.get("size").and_then(|v| v.as_i64()).map(|s| s as u32);
+
+        // Read the SVG file
+        let svg_path = icons_path.join(format!("{}.svg", name));
+        let svg_content = match std::fs::read_to_string(&svg_path) {
+            Ok(content) => content,
+            Err(_) => {
+                eprintln!("Warning: icon '{}' not found at {:?}", name, svg_path);
+                return Ok(Value::String(String::new()));
+            }
+        };
+
+        // Modify the SVG if needed
+        let mut svg = svg_content;
+
+        // Add class attribute if specified
+        if let Some(class_value) = class {
+            svg = svg.replacen("<svg", &format!("<svg class=\"{}\"", class_value), 1);
+        }
+
+        // Update size if specified
+        if let Some(size_value) = size {
+            svg = svg
+                .replace("width=\"24\"", &format!("width=\"{}\"", size_value))
+                .replace("height=\"24\"", &format!("height=\"{}\"", size_value));
+        }
+
+        Ok(Value::String(svg))
+    }
 }

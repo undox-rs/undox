@@ -1,0 +1,10 @@
+parent: ../..
+content_path: docs
+name: theme
+nav:
+  - Overview: index.md
+  - section: Features
+    items:
+      - settings.md
+      - icons.md
+      - macros.md

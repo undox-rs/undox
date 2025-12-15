@@ -15,10 +15,14 @@ theme:
 sources:
   - name: docs
     title: "undox"
-    path: ./docs/content
+    content_path: ./docs/content
     url_prefix: /
     repo_url: "https://github.com/undox/undox"
     edit_path: "docs/"
+  - name: theme
+    title: "Default Theme"
+    path: ./themes/default
+    url_prefix: /theme
 #  - name: sub
 #    title: "Subdocs"
 #    git:

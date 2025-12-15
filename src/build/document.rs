@@ -253,6 +253,22 @@ impl Document {
         }
     }
 
+    /// Create a new discovered document with parsed front matter.
+    pub fn discovered_with_front_matter(
+        source_name: String,
+        source_path: PathBuf,
+        url_path: String,
+        front_matter: FrontMatter,
+    ) -> Self {
+        Self {
+            source_name,
+            source_path,
+            url_path,
+            front_matter,
+            content: DocumentContent::Discovered,
+        }
+    }
+
     /// Get the document title, falling back to filename if not in front matter.
     pub fn title(&self) -> String {
         self.front_matter.title.clone().unwrap_or_else(|| {

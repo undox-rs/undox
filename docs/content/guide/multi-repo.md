@@ -1,5 +1,5 @@
 ---
-title: Multi-Repository Documentation
+title: Multi-Repository Docs
 description: Aggregate documentation from multiple repositories into a unified site
 ---
 

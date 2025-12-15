@@ -151,11 +151,18 @@ impl Builder {
             .collect();
 
         // Step 5: Build per-source navigation
-        let nav_by_source = self.build_navigation_by_source(&all_items);
+        let nav_by_source = self.build_navigation_by_source(&all_items, &resolved_sources);
 
         // Step 6: Create output directory
         let output_dir = self.output_dir();
         std::fs::create_dir_all(&output_dir)?;
+
+        // Step 6.5: Copy theme static files to _theme/
+        let theme_static = theme_path.join("static");
+        if theme_static.exists() {
+            let theme_output = output_dir.join("_theme");
+            copy_dir_recursive(&theme_static, &theme_output)?;
+        }
 
         // Step 7: Create syntax highlighter
         let highlighter = SyntaxHighlighter::default();
@@ -377,9 +384,11 @@ impl Builder {
     ///
     /// Returns a map from source name to that source's navigation.
     /// Each source gets its own isolated navigation containing only its documents.
+    /// If a source has configured nav, that is used; otherwise, nav is auto-generated.
     fn build_navigation_by_source(
         &self,
         items: &[(ContentItem, PathBuf)],
+        resolved_sources: &[ResolvedSource],
     ) -> std::collections::HashMap<String, Vec<NavSection>> {
         // Group documents by source
         let mut docs_by_source: std::collections::HashMap<String, Vec<&Document>> =
@@ -397,60 +406,200 @@ impl Builder {
         // Build navigation for each source
         let mut nav_by_source = std::collections::HashMap::new();
 
-        for (source_name, mut docs) in docs_by_source {
-            // Sort by source path (relative path within the source) for consistent ordering
-            docs.sort_by(|a, b| a.source_path.cmp(&b.source_path));
+        for source in resolved_sources {
+            let source_name = &source.config.name;
+            let docs = docs_by_source.get(source_name).cloned().unwrap_or_default();
 
-            // Group by directory within the source
-            let mut sections: std::collections::HashMap<String, Vec<NavLink>> =
-                std::collections::HashMap::new();
-            let mut root_links: Vec<NavLink> = Vec::new();
+            // Check if source has configured nav
+            if let Some(nav_config) = &source.config.nav {
+                // Build lookup from relative source path to document URL
+                let path_to_doc: std::collections::HashMap<String, &Document> = docs
+                    .iter()
+                    .map(|doc| {
+                        let path_str = doc.source_path.to_string_lossy().to_string();
+                        (path_str, *doc)
+                    })
+                    .collect();
 
-            for doc in docs {
-                let link = NavLink {
-                    title: doc.title(),
-                    url: doc.url_path.clone(),
-                };
-
-                // Use source_path (relative to source root) for sectioning
-                let path_str = doc.source_path.to_string_lossy();
-                let path_parts: Vec<&str> = path_str.trim_matches('/').split('/').collect();
-
-                if path_parts.len() <= 1 {
-                    // Root level document within this source
-                    root_links.push(link);
-                } else {
-                    // Nested document - use first directory as section
-                    let section_name = path_parts[0].to_string();
-                    sections.entry(section_name).or_default().push(link);
-                }
+                // Convert NavConfig to Vec<NavSection>
+                let nav = self.convert_nav_config(nav_config, &path_to_doc);
+                nav_by_source.insert(source_name.clone(), nav);
+            } else {
+                // Auto-generate navigation from documents
+                let nav = self.auto_generate_nav(docs);
+                nav_by_source.insert(source_name.clone(), nav);
             }
-
-            // Build the nav structure for this source
-            let mut nav: Vec<NavSection> = Vec::new();
-
-            // Add root links first
-            for link in root_links {
-                nav.push(NavSection::Link(link));
-            }
-
-            // Add sections (sorted by name)
-            let mut section_names: Vec<_> = sections.keys().collect();
-            section_names.sort();
-
-            for section_name in section_names {
-                if let Some(links) = sections.get(section_name) {
-                    nav.push(NavSection::Section {
-                        section: title_case(section_name),
-                        items: links.clone(),
-                    });
-                }
-            }
-
-            nav_by_source.insert(source_name, nav);
         }
 
         nav_by_source
+    }
+
+    /// Convert a NavConfig to Vec<NavSection> using document lookup.
+    fn convert_nav_config(
+        &self,
+        nav_config: &[crate::config::NavItem],
+        path_to_doc: &std::collections::HashMap<String, &Document>,
+    ) -> Vec<NavSection> {
+        use crate::config::NavItem;
+
+        let mut result = Vec::new();
+
+        for item in nav_config {
+            match item {
+                NavItem::Section { section, items } => {
+                    // Convert section items to NavLinks
+                    let nav_links: Vec<NavLink> = items
+                        .iter()
+                        .filter_map(|item| self.nav_item_to_link(item, path_to_doc))
+                        .collect();
+
+                    if !nav_links.is_empty() {
+                        result.push(NavSection::Section {
+                            section: section.clone(),
+                            items: nav_links,
+                        });
+                    }
+                }
+                NavItem::Titled(map) => {
+                    // Single titled link
+                    if let Some((title, path)) = map.iter().next() {
+                        if let Some(doc) = path_to_doc.get(path) {
+                            result.push(NavSection::Link(NavLink {
+                                title: title.clone(),
+                                url: doc.url_path.clone(),
+                            }));
+                        }
+                    }
+                }
+                NavItem::Path(path) => {
+                    if !path.ends_with('/') {
+                        // It's a file path
+                        if let Some(doc) = path_to_doc.get(path) {
+                            result.push(NavSection::Link(NavLink {
+                                title: doc.title(),
+                                url: doc.url_path.clone(),
+                            }));
+                        }
+                    }
+                    // Directory paths (ending with /) are not supported in this simple conversion
+                }
+            }
+        }
+
+        result
+    }
+
+    /// Convert a single NavItem to a NavLink.
+    fn nav_item_to_link(
+        &self,
+        item: &crate::config::NavItem,
+        path_to_doc: &std::collections::HashMap<String, &Document>,
+    ) -> Option<NavLink> {
+        use crate::config::NavItem;
+
+        match item {
+            NavItem::Titled(map) => {
+                if let Some((title, path)) = map.iter().next() {
+                    path_to_doc.get(path).map(|doc| NavLink {
+                        title: title.clone(),
+                        url: doc.url_path.clone(),
+                    })
+                } else {
+                    None
+                }
+            }
+            NavItem::Path(path) => {
+                if !path.ends_with('/') {
+                    path_to_doc.get(path).map(|doc| NavLink {
+                        title: doc.title(),
+                        url: doc.url_path.clone(),
+                    })
+                } else {
+                    None
+                }
+            }
+            NavItem::Section { .. } => {
+                // Nested sections within a section not supported for now
+                None
+            }
+        }
+    }
+
+    /// Auto-generate navigation from a list of documents.
+    fn auto_generate_nav(&self, mut docs: Vec<&Document>) -> Vec<NavSection> {
+        // Sort by source path (relative path within the source) for consistent ordering
+        docs.sort_by(|a, b| a.source_path.cmp(&b.source_path));
+
+        // Group by directory within the source
+        // Store (is_index, NavLink) tuples for sorting
+        let mut sections: std::collections::HashMap<String, Vec<(bool, NavLink)>> =
+            std::collections::HashMap::new();
+        let mut root_links: Vec<(bool, NavLink)> = Vec::new();
+
+        for doc in docs {
+            let is_index = doc
+                .source_path
+                .file_stem()
+                .map_or(false, |s| s == "index");
+
+            let link = NavLink {
+                title: doc.title(),
+                url: doc.url_path.clone(),
+            };
+
+            // Use source_path (relative to source root) for sectioning
+            let path_str = doc.source_path.to_string_lossy();
+            let path_parts: Vec<&str> = path_str.trim_matches('/').split('/').collect();
+
+            if path_parts.len() <= 1 {
+                // Root level document within this source
+                root_links.push((is_index, link));
+            } else {
+                // Nested document - use first directory as section
+                let section_name = path_parts[0].to_string();
+                sections.entry(section_name).or_default().push((is_index, link));
+            }
+        }
+
+        // Build the nav structure for this source
+        let mut nav: Vec<NavSection> = Vec::new();
+
+        // Sort root links: index first, then alphabetically by title
+        root_links.sort_by(|a, b| {
+            match (a.0, b.0) {
+                (true, false) => std::cmp::Ordering::Less,
+                (false, true) => std::cmp::Ordering::Greater,
+                _ => a.1.title.cmp(&b.1.title),
+            }
+        });
+
+        // Add root links first (extract NavLink from tuple)
+        for (_, link) in root_links {
+            nav.push(NavSection::Link(link));
+        }
+
+        // Add sections (sorted by name)
+        let mut section_names: Vec<_> = sections.keys().cloned().collect();
+        section_names.sort();
+
+        for section_name in section_names {
+            if let Some(mut links) = sections.remove(&section_name) {
+                // Sort section links: index first, then alphabetically by title
+                links.sort_by(|a, b| {
+                    match (a.0, b.0) {
+                        (true, false) => std::cmp::Ordering::Less,
+                        (false, true) => std::cmp::Ordering::Greater,
+                        _ => a.1.title.cmp(&b.1.title),
+                    }
+                });
+                nav.push(NavSection::Section {
+                    section: title_case(&section_name),
+                    items: links.into_iter().map(|(_, link)| link).collect(),
+                });
+            }
+        }
+
+        nav
     }
 }
 
@@ -650,4 +799,27 @@ fn slugify(s: &str) -> String {
     s.to_lowercase()
         .replace(" ", "-")
         .replace(|c: char| !c.is_alphanumeric() && c != '-', "")
+}
+
+/// Recursively copy a directory to a destination.
+fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
+    if !src.exists() {
+        return Ok(());
+    }
+
+    std::fs::create_dir_all(dst)?;
+
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+
+        if src_path.is_dir() {
+            copy_dir_recursive(&src_path, &dst_path)?;
+        } else {
+            std::fs::copy(&src_path, &dst_path)?;
+        }
+    }
+
+    Ok(())
 }

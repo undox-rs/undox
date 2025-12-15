@@ -318,6 +318,7 @@
         max-width: 800px;
         padding: 2rem;
         flex-shrink: 1;
+        overflow: hidden;
       }
 
       .content [id] {
@@ -432,7 +433,7 @@
 
       /* Navigation */
       .nav-section {
-        margin-bottom: 1.25rem;
+        /* Margin only when section has a title - standalone links are also wrapped in nav-section */
       }
 
       .nav-section-title {
@@ -441,8 +442,13 @@
         text-transform: uppercase;
         letter-spacing: 0.05em;
         color: var(--color-text-muted);
+        margin-top: 1.25rem;
         margin-bottom: 0.5rem;
         padding: 0 0.5rem;
+      }
+
+      .nav-section:first-child .nav-section-title {
+        margin-top: 0;
       }
 
       .nav-list {
@@ -987,19 +993,7 @@
       <div class="header-controls">
         {% block header_right %}{% endblock %}
         <button class="search-button" id="search-button" aria-label="Search">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
+          {{ icon(name="search") }}
           <span>Search...</span>
           <kbd>/</kbd>
         </button>
@@ -1073,8 +1067,7 @@
           </a>
           {% endif %} {% endfor %}
         </div>
-        {% endif %}
-        {% for item in nav %} {% if item.section %}
+        {% endif %} {% for item in nav %} {% if item.section %}
         <div class="nav-section">
           <div class="nav-section-title">{{ item.section }}</div>
           <ul class="nav-list">
@@ -1565,9 +1558,7 @@
         });
       })();
     </script>
-    {% block scripts %}{% endblock %}
-
-    {% if undox.live_reload %}
+    {% block scripts %}{% endblock %} {% if undox.live_reload %}
     <!-- Live reload for dev mode -->
     <script>
       (function () {

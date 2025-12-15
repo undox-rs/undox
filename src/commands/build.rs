@@ -1,4 +1,9 @@
-use crate::{BuildArgs, build::{Builder, base_path_from_config, build_search_index}, config::Config, theme::ThemeConfig};
+use crate::{
+    BuildArgs,
+    build::{Builder, base_path_from_config, build_search_index},
+    config::Config,
+    theme::ThemeConfig,
+};
 
 pub async fn run(args: &BuildArgs) -> Result<(), anyhow::Error> {
     // Determine the config file path
