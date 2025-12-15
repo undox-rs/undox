@@ -1,3 +1,7 @@
+---
+title: Default Theme Overview
+---
+
 # Default Theme
 
 The default undox theme provides a clean, responsive documentation layout with light and dark mode support, full-text search via Pagefind, and helpful template features.
@@ -12,6 +16,6 @@ The default undox theme provides a clean, responsive documentation layout with l
 
 ## Documentation
 
+- [Settings](./settings) - Theme configuration options
 - [Icons](./icons) - Using Lucide icons in your documentation
 - [Macros](./macros) - Available template macros
-- [Settings](./settings) - Theme configuration options
