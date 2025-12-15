@@ -1,4 +1,4 @@
-use autumnus::{formatter::Formatter, languages::Language, themes, HtmlLinkedBuilder};
+use autumnus::{HtmlLinkedBuilder, formatter::Formatter, languages::Language, themes};
 
 /// A syntax highlighter using autumnus (tree-sitter based).
 pub struct SyntaxHighlighter {
@@ -20,21 +20,23 @@ impl SyntaxHighlighter {
         let lang = Language::guess(language, code);
 
         // Check if it's the Plaintext/unknown fallback
-        if matches!(lang, Language::PlainText) && !language.is_empty() && language != "plaintext" && language != "text" {
+        if matches!(lang, Language::PlainText)
+            && !language.is_empty()
+            && language != "plaintext"
+            && language != "text"
+        {
             // Language wasn't recognized, use plain code block
             return Self::plain_code_block(code, language);
         }
 
-        let formatter = HtmlLinkedBuilder::new()
-            .source(code)
-            .lang(lang)
-            .build();
+        let formatter = HtmlLinkedBuilder::new().source(code).lang(lang).build();
 
         match formatter {
             Ok(f) => {
                 let mut output: Vec<u8> = Vec::new();
                 if f.format(&mut output).is_ok() {
-                    String::from_utf8(output).unwrap_or_else(|_| Self::plain_code_block(code, language))
+                    String::from_utf8(output)
+                        .unwrap_or_else(|_| Self::plain_code_block(code, language))
                 } else {
                     Self::plain_code_block(code, language)
                 }
@@ -55,7 +57,10 @@ impl SyntaxHighlighter {
         if language.is_empty() {
             format!("<pre><code>{}</code></pre>", escaped)
         } else {
-            format!("<pre><code class=\"language-{}\">{}</code></pre>", language, escaped)
+            format!(
+                "<pre><code class=\"language-{}\">{}</code></pre>",
+                language, escaped
+            )
         }
     }
 }

@@ -206,7 +206,9 @@ pub fn parse_front_matter(content: &str) -> ParsedContent {
     // Extract the markdown content (skip the closing delimiter and newline)
     let markdown_start = 3 + closing_pos + 4; // "---" + yaml + "\n---"
     let markdown_content = if markdown_start < content.len() {
-        content[markdown_start..].trim_start_matches('\n').to_string()
+        content[markdown_start..]
+            .trim_start_matches('\n')
+            .to_string()
     } else {
         String::new()
     };
@@ -375,7 +377,10 @@ description: A test page
 "#;
         let parsed = parse_front_matter(content);
         assert_eq!(parsed.front_matter.title, Some("My Page".to_string()));
-        assert_eq!(parsed.front_matter.description, Some("A test page".to_string()));
+        assert_eq!(
+            parsed.front_matter.description,
+            Some("A test page".to_string())
+        );
         assert_eq!(parsed.content.trim(), "# Hello World");
     }
 

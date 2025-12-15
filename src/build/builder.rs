@@ -537,10 +537,7 @@ impl Builder {
         let mut root_links: Vec<(bool, NavLink)> = Vec::new();
 
         for doc in docs {
-            let is_index = doc
-                .source_path
-                .file_stem()
-                .map_or(false, |s| s == "index");
+            let is_index = doc.source_path.file_stem().map_or(false, |s| s == "index");
 
             let link = NavLink {
                 title: doc.title(),
@@ -557,7 +554,10 @@ impl Builder {
             } else {
                 // Nested document - use first directory as section
                 let section_name = path_parts[0].to_string();
-                sections.entry(section_name).or_default().push((is_index, link));
+                sections
+                    .entry(section_name)
+                    .or_default()
+                    .push((is_index, link));
             }
         }
 
@@ -565,12 +565,10 @@ impl Builder {
         let mut nav: Vec<NavSection> = Vec::new();
 
         // Sort root links: index first, then alphabetically by title
-        root_links.sort_by(|a, b| {
-            match (a.0, b.0) {
-                (true, false) => std::cmp::Ordering::Less,
-                (false, true) => std::cmp::Ordering::Greater,
-                _ => a.1.title.cmp(&b.1.title),
-            }
+        root_links.sort_by(|a, b| match (a.0, b.0) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a.1.title.cmp(&b.1.title),
         });
 
         // Add root links first (extract NavLink from tuple)
@@ -585,12 +583,10 @@ impl Builder {
         for section_name in section_names {
             if let Some(mut links) = sections.remove(&section_name) {
                 // Sort section links: index first, then alphabetically by title
-                links.sort_by(|a, b| {
-                    match (a.0, b.0) {
-                        (true, false) => std::cmp::Ordering::Less,
-                        (false, true) => std::cmp::Ordering::Greater,
-                        _ => a.1.title.cmp(&b.1.title),
-                    }
+                links.sort_by(|a, b| match (a.0, b.0) {
+                    (true, false) => std::cmp::Ordering::Less,
+                    (false, true) => std::cmp::Ordering::Greater,
+                    _ => a.1.title.cmp(&b.1.title),
                 });
                 nav.push(NavSection::Section {
                     section: title_case(&section_name),

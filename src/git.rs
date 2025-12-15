@@ -87,10 +87,11 @@ impl GitFetcher {
         eprintln!("Cloning {}...", config.url);
 
         // Clone the repository
-        let repo = Repository::clone(&config.url, target_dir).map_err(|e| GitError::CloneFailed {
-            url: config.url.clone(),
-            source: e,
-        })?;
+        let repo =
+            Repository::clone(&config.url, target_dir).map_err(|e| GitError::CloneFailed {
+                url: config.url.clone(),
+                source: e,
+            })?;
 
         // Checkout the requested ref if specified
         if let Some(ref git_ref) = config.git_ref {
@@ -135,37 +136,36 @@ impl GitFetcher {
         let object = self.resolve_ref(repo, url, git_ref)?;
 
         // Checkout the tree
-        repo.checkout_tree(&object, None).map_err(|e| {
-            GitError::CheckoutFailed {
+        repo.checkout_tree(&object, None)
+            .map_err(|e| GitError::CheckoutFailed {
                 url: url.to_string(),
                 git_ref: git_ref.to_string(),
                 source: e,
-            }
-        })?;
+            })?;
 
         // Set HEAD to point to the ref
         // For branches, use the branch ref; for commits/tags, use detached HEAD
         if let Ok(reference) = repo.find_branch(git_ref, git2::BranchType::Local) {
             repo.set_head(reference.get().name().unwrap_or("HEAD"))
-        } else if let Ok(reference) = repo.find_branch(
-            &format!("origin/{}", git_ref),
-            git2::BranchType::Remote,
-        ) {
+        } else if let Ok(reference) =
+            repo.find_branch(&format!("origin/{}", git_ref), git2::BranchType::Remote)
+        {
             // Create a local branch tracking the remote
-            let commit = reference.get().peel_to_commit().map_err(|e| {
-                GitError::CheckoutFailed {
+            let commit =
+                reference
+                    .get()
+                    .peel_to_commit()
+                    .map_err(|e| GitError::CheckoutFailed {
+                        url: url.to_string(),
+                        git_ref: git_ref.to_string(),
+                        source: e,
+                    })?;
+            repo.branch(git_ref, &commit, true)
+                .map_err(|e| GitError::CheckoutFailed {
                     url: url.to_string(),
                     git_ref: git_ref.to_string(),
                     source: e,
-                }
-            })?;
-            repo.branch(git_ref, &commit, true).map_err(|e| {
-                GitError::CheckoutFailed {
-                    url: url.to_string(),
-                    git_ref: git_ref.to_string(),
-                    source: e,
-                }
-            })?;
+                })?;
             repo.set_head(&format!("refs/heads/{}", git_ref))
         } else {
             // Detached HEAD for tags or commits

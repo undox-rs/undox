@@ -36,8 +36,8 @@ pub async fn build_search_index(
         .build();
 
     // Create the index
-    let mut index = PagefindIndex::new(Some(config))
-        .map_err(|e| SearchError::IndexCreation(e.to_string()))?;
+    let mut index =
+        PagefindIndex::new(Some(config)).map_err(|e| SearchError::IndexCreation(e.to_string()))?;
 
     // Index the output directory
     let output_dir_str = output_dir.to_string_lossy().to_string();

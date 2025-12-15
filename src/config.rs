@@ -189,12 +189,13 @@ impl ChildConfig {
 
         // Load parent config
         let parent_config_path = parent_path.join("undox.yaml");
-        let parent_config_str = std::fs::read_to_string(&parent_config_path)
-            .map_err(ConfigError::ReadParent)?;
+        let parent_config_str =
+            std::fs::read_to_string(&parent_config_path).map_err(ConfigError::ReadParent)?;
 
         // Parse parent config - it must be a root config
-        let parent_config: Config = serde_yaml::from_str(&parent_config_str)
-            .map_err(|e| ConfigError::Validation(format!("failed to parse parent config: {}", e)))?;
+        let parent_config: Config = serde_yaml::from_str(&parent_config_str).map_err(|e| {
+            ConfigError::Validation(format!("failed to parse parent config: {}", e))
+        })?;
 
         let parent_root = match parent_config {
             Config::Root(root) => root,

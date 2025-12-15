@@ -3,22 +3,22 @@ use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
+use axum::Router;
 use axum::extract::State;
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::routing::get;
-use axum::Router;
 use futures_util::stream::Stream;
 use tokio::sync::broadcast;
 use tower_http::services::ServeDir;
 
 use crate::{
+    ServeArgs,
     build::{
-        base_path_from_config, build_search_index, Builder, FileWatcher, PathClassifier,
-        WatchEvent, WatchPaths,
+        Builder, FileWatcher, PathClassifier, WatchEvent, WatchPaths, base_path_from_config,
+        build_search_index,
     },
     config::{Config, RootConfig},
     theme::ThemeConfig,
-    ServeArgs,
 };
 
 /// SSE handler for live reload notifications.
@@ -113,7 +113,8 @@ pub async fn run(args: &ServeArgs) -> Result<(), anyhow::Error> {
             config_path: config_path.clone(),
         };
 
-        let classifier = PathClassifier::new(source_dirs, result.theme_path.clone(), config_path.clone());
+        let classifier =
+            PathClassifier::new(source_dirs, result.theme_path.clone(), config_path.clone());
 
         let watch_config = root_config.dev.watch.clone();
         match FileWatcher::new(&watch_config, &watch_paths, classifier) {
@@ -141,14 +142,26 @@ pub async fn run(args: &ServeArgs) -> Result<(), anyhow::Error> {
                                     .expect("Failed to create runtime");
 
                                 let rebuild_succeeded = rt.block_on(async {
-                                    match do_build(&rebuild_config, &rebuild_base, rebuild_parent.as_ref(), true).await {
+                                    match do_build(
+                                        &rebuild_config,
+                                        &rebuild_base,
+                                        rebuild_parent.as_ref(),
+                                        true,
+                                    )
+                                    .await
+                                    {
                                         Ok(result) => {
                                             println!(
                                                 "Rebuilt {} documents, {} static files",
                                                 result.documents, result.static_files
                                             );
                                             // Rebuild search index
-                                            match build_search_index(&rebuild_output, &pagefind_config).await {
+                                            match build_search_index(
+                                                &rebuild_output,
+                                                &pagefind_config,
+                                            )
+                                            .await
+                                            {
                                                 Ok(count) => println!("Re-indexed {} pages", count),
                                                 Err(e) => eprintln!("Search index error: {}", e),
                                             }

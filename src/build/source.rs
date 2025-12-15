@@ -207,7 +207,12 @@ impl ResolvedSource {
             }
 
             // Skip common non-content directories
-            if path.is_dir() && matches!(file_name_str.as_ref(), "node_modules" | "__pycache__" | "target" | ".git") {
+            if path.is_dir()
+                && matches!(
+                    file_name_str.as_ref(),
+                    "node_modules" | "__pycache__" | "target" | ".git"
+                )
+            {
                 continue;
             }
 
@@ -279,7 +284,10 @@ impl ResolvedSource {
 
         // Handle index files - they become the directory URL
         let path_str = if path_str.ends_with("/index") || path_str == "index" {
-            path_str.trim_end_matches("/index").trim_end_matches("index").to_string()
+            path_str
+                .trim_end_matches("/index")
+                .trim_end_matches("index")
+                .to_string()
         } else {
             path_str
         };
@@ -323,6 +331,7 @@ mod tests {
     fn test_path_to_url() {
         let config = SourceConfig {
             name: "cli".to_string(),
+            title: Some("CLI".to_string()),
             url_prefix: Some("/cli".to_string()),
             repo_url: None,
             edit_path: None,
@@ -347,10 +356,7 @@ mod tests {
             source.path_to_url(Path::new("getting-started/quickstart.md"), &prefix),
             "/cli/getting-started/quickstart"
         );
-        assert_eq!(
-            source.path_to_url(Path::new("index.md"), &prefix),
-            "/cli"
-        );
+        assert_eq!(source.path_to_url(Path::new("index.md"), &prefix), "/cli");
         assert_eq!(
             source.path_to_url(Path::new("commands/index.md"), &prefix),
             "/cli/commands"
@@ -361,6 +367,7 @@ mod tests {
     fn test_path_to_url_root_source() {
         let config = SourceConfig {
             name: "docs".to_string(),
+            title: Some("Docs".to_string()),
             url_prefix: Some("/".to_string()),
             repo_url: None,
             edit_path: None,
@@ -381,16 +388,14 @@ mod tests {
             source.path_to_url(Path::new("installation.md"), &prefix),
             "/installation"
         );
-        assert_eq!(
-            source.path_to_url(Path::new("index.md"), &prefix),
-            "/"
-        );
+        assert_eq!(source.path_to_url(Path::new("index.md"), &prefix), "/");
     }
 
     #[test]
     fn test_path_to_static_url() {
         let config = SourceConfig {
             name: "cli".to_string(),
+            title: Some("CLI".to_string()),
             url_prefix: Some("/cli".to_string()),
             repo_url: None,
             edit_path: None,
