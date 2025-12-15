@@ -10,7 +10,6 @@ categories = ["command-line-utilities", "development-tools"]
 authors = ["Michelle Tilley <michelle@michelletilley.net>"]
 edition = "2024"
 license = "MIT"
-rust-version = "1.92.0"
 
 [dependencies]
 anyhow = "1.0.100"
