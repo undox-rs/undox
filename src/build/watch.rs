@@ -110,18 +110,9 @@ impl PathClassifier {
             return Some(ChangeKind::ThemeConfig);
         }
 
-        // Check if it's a template
-        if path.starts_with(&self.theme_dir) {
-            if path.extension().is_some_and(|e| e == "html") {
-                return Some(ChangeKind::Template {
-                    path: path.to_path_buf(),
-                });
-            }
-            // Other theme files (CSS, etc.) - ignore for now
-            return None;
-        }
-
-        // Check which source it belongs to
+        // Check source directories BEFORE theme directory
+        // This ensures files in theme docs (e.g., themes/default/docs/) are
+        // matched as sources rather than being caught by the theme check
         for (source_name, source_dir) in &self.source_dirs {
             if path.starts_with(source_dir) {
                 let ext = path.extension().and_then(|e| e.to_str());
@@ -139,6 +130,17 @@ impl PathClassifier {
                     }),
                 };
             }
+        }
+
+        // Check if it's a template (after sources, to allow theme docs to be sources)
+        if path.starts_with(&self.theme_dir) {
+            if path.extension().is_some_and(|e| e == "html") {
+                return Some(ChangeKind::Template {
+                    path: path.to_path_buf(),
+                });
+            }
+            // Other theme files (CSS, etc.) - ignore for now
+            return None;
         }
 
         None // Unknown path, ignore

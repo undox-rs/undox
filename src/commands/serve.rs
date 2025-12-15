@@ -103,7 +103,14 @@ pub async fn run(args: &ServeArgs) -> Result<(), anyhow::Error> {
                 use crate::build::source::ResolvedSource;
                 ResolvedSource::resolve(source.clone(), &base_path, &cache_dir)
                     .ok()
-                    .map(|resolved| (source.name.clone(), resolved.local_path))
+                    .map(|resolved| {
+                        // Canonicalize the path to ensure consistent matching with file events
+                        let canonical = resolved
+                            .local_path
+                            .canonicalize()
+                            .unwrap_or(resolved.local_path);
+                        (source.name.clone(), canonical)
+                    })
             })
             .collect();
 
