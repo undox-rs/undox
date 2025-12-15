@@ -7,6 +7,7 @@ mod commands;
 mod config;
 mod git;
 mod theme;
+mod util;
 
 #[derive(Parser)]
 struct Args {

@@ -5,7 +5,9 @@ use serde::Deserialize;
 use crate::config::{NavConfig, SourceConfig, SourceLocation};
 use crate::git::GitFetcher;
 
-use super::document::{ContentItem, Document, StaticFile, parse_front_matter};
+use super::document::{ContentItem, Document, FrontMatter, StaticFile, parse_front_matter};
+use super::format::FormatRegistry;
+use super::paths::{source_path_to_url, static_path_to_url};
 
 /// Partial config for local sub-docs (just the fields we need)
 #[derive(Deserialize)]
@@ -103,28 +105,25 @@ impl ResolvedSource {
 
                 // Check for undox.yaml to get content_path and nav
                 let child_config_path = resolved.join("undox.yaml");
-                if child_config_path.exists() {
-                    if let Ok(content) = std::fs::read_to_string(&child_config_path) {
-                        if let Ok(subdocs_config) =
-                            serde_yaml::from_str::<LocalSubdocsConfig>(&content)
-                        {
-                            // Apply nav from child config if not set in parent
-                            if config.nav.is_none() {
-                                if let Some(nav) = subdocs_config.nav {
-                                    config.nav = Some(nav);
-                                }
-                            }
+                if child_config_path.exists()
+                    && let Ok(content) = std::fs::read_to_string(&child_config_path)
+                    && let Ok(subdocs_config) = serde_yaml::from_str::<LocalSubdocsConfig>(&content)
+                {
+                    // Apply nav from child config if not set in parent
+                    if config.nav.is_none()
+                        && let Some(nav) = subdocs_config.nav
+                    {
+                        config.nav = Some(nav);
+                    }
 
-                            // Use content_path from child config
-                            if let Some(cp) = subdocs_config.content_path {
-                                let content_dir = resolved.join(&cp);
-                                if content_dir.exists() && content_dir.is_dir() {
-                                    return Ok(Self {
-                                        config,
-                                        local_path: content_dir,
-                                    });
-                                }
-                            }
+                    // Use content_path from child config
+                    if let Some(cp) = subdocs_config.content_path {
+                        let content_dir = resolved.join(&cp);
+                        if content_dir.exists() && content_dir.is_dir() {
+                            return Ok(Self {
+                                config,
+                                local_path: content_dir,
+                            });
                         }
                     }
                 }
@@ -173,9 +172,18 @@ impl ResolvedSource {
     /// Discover all content in this source.
     ///
     /// Walks the directory tree and returns all documents and static files found.
-    pub fn discover_content(&self) -> Result<Vec<ContentItem>, SourceError> {
+    /// Uses the format registry to determine which files are documents.
+    pub fn discover_content(
+        &self,
+        format_registry: &FormatRegistry,
+    ) -> Result<Vec<ContentItem>, SourceError> {
         let mut items = Vec::new();
-        self.walk_directory(&self.local_path, &PathBuf::new(), &mut items)?;
+        self.walk_directory(
+            &self.local_path,
+            &PathBuf::new(),
+            format_registry,
+            &mut items,
+        )?;
         Ok(items)
     }
 
@@ -184,6 +192,7 @@ impl ResolvedSource {
         &self,
         dir: &Path,
         relative_path: &Path,
+        format_registry: &FormatRegistry,
         items: &mut Vec<ContentItem>,
     ) -> Result<(), SourceError> {
         let entries = std::fs::read_dir(dir).map_err(|e| SourceError::ReadDir {
@@ -220,10 +229,10 @@ impl ResolvedSource {
 
             if path.is_dir() {
                 // Recurse into subdirectory
-                self.walk_directory(&path, &item_relative_path, items)?;
+                self.walk_directory(&path, &item_relative_path, format_registry, items)?;
             } else if path.is_file() {
                 // Determine if this is a document or static file
-                let item = self.classify_file(&path, &item_relative_path);
+                let item = self.classify_file(&path, &item_relative_path, format_registry);
                 items.push(item);
             }
         }
@@ -232,94 +241,50 @@ impl ResolvedSource {
     }
 
     /// Classify a file as either a Document or StaticFile.
-    fn classify_file(&self, full_path: &Path, relative_path: &Path) -> ContentItem {
-        let extension = relative_path
-            .extension()
-            .and_then(|e| e.to_str())
-            .map(|e| e.to_lowercase());
-
+    ///
+    /// Uses the format registry to determine if a file is a document based on
+    /// its extension. Files with registered format extensions are documents;
+    /// all others are static files.
+    fn classify_file(
+        &self,
+        full_path: &Path,
+        relative_path: &Path,
+        format_registry: &FormatRegistry,
+    ) -> ContentItem {
         let url_prefix = self.url_prefix();
 
-        match extension.as_deref() {
-            Some("md" | "markdown") => {
-                // It's a markdown document - read and parse frontmatter for title
-                let url_path = self.path_to_url(relative_path, &url_prefix);
+        if format_registry.is_document(relative_path) {
+            // It's a document - read and parse front matter + content
+            let url_path = source_path_to_url(relative_path, &url_prefix);
 
-                // Read file and parse frontmatter to get title
-                let front_matter = std::fs::read_to_string(full_path)
-                    .ok()
-                    .map(|content| parse_front_matter(&content).front_matter)
-                    .unwrap_or_default();
+            // Read file and parse front matter, storing both metadata and content
+            let (front_matter, raw_content) = match std::fs::read_to_string(full_path) {
+                Ok(content) => {
+                    let parsed = parse_front_matter(&content);
+                    (parsed.front_matter, parsed.content)
+                }
+                Err(e) => {
+                    eprintln!("Warning: Failed to read {}: {}", full_path.display(), e);
+                    (FrontMatter::default(), String::new())
+                }
+            };
 
-                ContentItem::Document(Document::discovered_with_front_matter(
-                    self.config.name.clone(),
-                    relative_path.to_path_buf(),
-                    url_path,
-                    front_matter,
-                ))
-            }
-            _ => {
-                // It's a static file
-                let output_path = self.path_to_static_url(relative_path, &url_prefix);
-                ContentItem::Static(StaticFile::new(
-                    self.config.name.clone(),
-                    relative_path.to_path_buf(),
-                    output_path,
-                ))
-            }
-        }
-    }
-
-    /// Convert a file path to a URL path for documents.
-    /// "getting-started/installation.md" -> "/cli/getting-started/installation"
-    fn path_to_url(&self, path: &Path, url_prefix: &str) -> String {
-        let mut url = url_prefix.to_string();
-        if !url.ends_with('/') {
-            url.push('/');
-        }
-
-        // Remove .md extension and convert path separators
-        let path_str = path.with_extension("").to_string_lossy().to_string();
-        let path_str = path_str.replace('\\', "/");
-
-        // Handle index files - they become the directory URL
-        let path_str = if path_str.ends_with("/index") || path_str == "index" {
-            path_str
-                .trim_end_matches("/index")
-                .trim_end_matches("index")
-                .to_string()
+            ContentItem::Document(Document::new(
+                self.config.name.clone(),
+                relative_path.to_path_buf(),
+                url_path,
+                front_matter,
+                raw_content,
+            ))
         } else {
-            path_str
-        };
-
-        url.push_str(&path_str);
-
-        // Normalize: remove trailing slash unless it's the root
-        if url.len() > 1 && url.ends_with('/') {
-            url.pop();
+            // It's a static file
+            let output_path = static_path_to_url(relative_path, &url_prefix);
+            ContentItem::Static(StaticFile::new(
+                self.config.name.clone(),
+                relative_path.to_path_buf(),
+                output_path,
+            ))
         }
-
-        // Ensure we have at least a slash
-        if url.is_empty() {
-            url = "/".to_string();
-        }
-
-        url
-    }
-
-    /// Convert a file path to an output path for static files.
-    /// "images/screenshot.png" -> "/cli/images/screenshot.png"
-    fn path_to_static_url(&self, path: &Path, url_prefix: &str) -> String {
-        let mut url = url_prefix.to_string();
-        if !url.ends_with('/') {
-            url.push('/');
-        }
-
-        let path_str = path.to_string_lossy().to_string();
-        let path_str = path_str.replace('\\', "/");
-
-        url.push_str(&path_str);
-        url
     }
 }
 
@@ -329,6 +294,8 @@ mod tests {
 
     #[test]
     fn test_path_to_url() {
+        // Tests for source_path_to_url are in paths.rs
+        // This test verifies the url_prefix method works correctly
         let config = SourceConfig {
             name: "cli".to_string(),
             title: Some("CLI".to_string()),
@@ -346,20 +313,12 @@ mod tests {
             local_path: PathBuf::from("/tmp/docs"),
         };
 
-        let prefix = source.url_prefix();
+        assert_eq!(source.url_prefix(), "/cli");
 
+        // Verify integration with path functions
         assert_eq!(
-            source.path_to_url(Path::new("installation.md"), &prefix),
+            source_path_to_url(Path::new("installation.md"), &source.url_prefix()),
             "/cli/installation"
-        );
-        assert_eq!(
-            source.path_to_url(Path::new("getting-started/quickstart.md"), &prefix),
-            "/cli/getting-started/quickstart"
-        );
-        assert_eq!(source.path_to_url(Path::new("index.md"), &prefix), "/cli");
-        assert_eq!(
-            source.path_to_url(Path::new("commands/index.md"), &prefix),
-            "/cli/commands"
         );
     }
 
@@ -382,38 +341,22 @@ mod tests {
             local_path: PathBuf::from("/tmp/docs"),
         };
 
+        // Root source has "/" prefix
         let prefix = source.url_prefix();
+        assert_eq!(prefix, "/");
 
+        // With "/" prefix, paths should work correctly
         assert_eq!(
-            source.path_to_url(Path::new("installation.md"), &prefix),
+            source_path_to_url(Path::new("installation.md"), &prefix),
             "/installation"
         );
-        assert_eq!(source.path_to_url(Path::new("index.md"), &prefix), "/");
+        assert_eq!(source_path_to_url(Path::new("index.md"), &prefix), "/");
     }
 
     #[test]
     fn test_path_to_static_url() {
-        let config = SourceConfig {
-            name: "cli".to_string(),
-            title: Some("CLI".to_string()),
-            url_prefix: Some("/cli".to_string()),
-            repo_url: None,
-            edit_path: None,
-            nav: None,
-            location: SourceLocation::ContentPath {
-                content_path: PathBuf::from("./docs"),
-            },
-        };
-
-        let source = ResolvedSource {
-            config,
-            local_path: PathBuf::from("/tmp/docs"),
-        };
-
-        let prefix = source.url_prefix();
-
         assert_eq!(
-            source.path_to_static_url(Path::new("images/screenshot.png"), &prefix),
+            static_path_to_url(Path::new("images/screenshot.png"), "/cli"),
             "/cli/images/screenshot.png"
         );
     }

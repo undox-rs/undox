@@ -2,6 +2,10 @@
 //!
 //! Tracks file state and rendered output to determine what needs rebuilding
 //! when source files change.
+//!
+//! Note: This module is prepared for future incremental build support.
+
+#![allow(dead_code)]
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -252,15 +256,14 @@ impl BuildCache {
         if let Ok(entries) = std::fs::read_dir(template_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().map_or(false, |e| e == "html") {
-                    if let Ok(meta) = std::fs::metadata(&path) {
-                        if let Ok(mtime) = meta.modified() {
-                            match self.template_mtimes.get(&path) {
-                                Some(&cached_mtime) if mtime > cached_mtime => return true,
-                                None => return true,
-                                _ => {}
-                            }
-                        }
+                if path.extension().is_some_and(|e| e == "html")
+                    && let Ok(meta) = std::fs::metadata(&path)
+                    && let Ok(mtime) = meta.modified()
+                {
+                    match self.template_mtimes.get(&path) {
+                        Some(&cached_mtime) if mtime > cached_mtime => return true,
+                        None => return true,
+                        _ => {}
                     }
                 }
             }

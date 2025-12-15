@@ -194,29 +194,27 @@ impl GitFetcher {
         git_ref: &str,
     ) -> Result<git2::Object<'a>, GitError> {
         // Try local branch
-        if let Ok(branch) = repo.find_branch(git_ref, git2::BranchType::Local) {
-            if let Some(target) = branch.get().target() {
-                if let Ok(obj) = repo.find_object(target, None) {
-                    return Ok(obj);
-                }
-            }
+        if let Ok(branch) = repo.find_branch(git_ref, git2::BranchType::Local)
+            && let Some(target) = branch.get().target()
+            && let Ok(obj) = repo.find_object(target, None)
+        {
+            return Ok(obj);
         }
 
         // Try remote branch (origin/ref)
         let remote_ref = format!("origin/{}", git_ref);
-        if let Ok(branch) = repo.find_branch(&remote_ref, git2::BranchType::Remote) {
-            if let Some(target) = branch.get().target() {
-                if let Ok(obj) = repo.find_object(target, None) {
-                    return Ok(obj);
-                }
-            }
+        if let Ok(branch) = repo.find_branch(&remote_ref, git2::BranchType::Remote)
+            && let Some(target) = branch.get().target()
+            && let Ok(obj) = repo.find_object(target, None)
+        {
+            return Ok(obj);
         }
 
         // Try as a reference (tags, etc.)
-        if let Ok(reference) = repo.find_reference(&format!("refs/tags/{}", git_ref)) {
-            if let Ok(obj) = reference.peel(git2::ObjectType::Any) {
-                return Ok(obj);
-            }
+        if let Ok(reference) = repo.find_reference(&format!("refs/tags/{}", git_ref))
+            && let Ok(obj) = reference.peel(git2::ObjectType::Any)
+        {
+            return Ok(obj);
         }
 
         // Try as a commit SHA (revparse handles partial SHAs too)

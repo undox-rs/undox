@@ -2,6 +2,8 @@ use autumnus::{HtmlLinkedBuilder, formatter::Formatter, languages::Language, the
 
 /// A syntax highlighter using autumnus (tree-sitter based).
 pub struct SyntaxHighlighter {
+    /// Theme name for CSS generation (used by generate_css).
+    #[allow(dead_code)]
     theme_name: String,
 }
 
@@ -46,6 +48,7 @@ impl SyntaxHighlighter {
     }
 
     /// Generate CSS for the current theme.
+    #[allow(dead_code)]
     pub fn generate_css(&self) -> Option<String> {
         let theme = themes::get(&self.theme_name).ok()?;
         Some(theme.css(false)) // false = don't enable italic

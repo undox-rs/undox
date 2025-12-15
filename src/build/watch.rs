@@ -28,6 +28,7 @@ pub enum WatchError {
     #[error("notify error: {0}")]
     Notify(#[from] notify::Error),
 
+    #[allow(dead_code)]
     #[error("failed to create watcher channel")]
     ChannelCreate,
 }
@@ -111,7 +112,7 @@ impl PathClassifier {
 
         // Check if it's a template
         if path.starts_with(&self.theme_dir) {
-            if path.extension().map_or(false, |e| e == "html") {
+            if path.extension().is_some_and(|e| e == "html") {
                 return Some(ChangeKind::Template {
                     path: path.to_path_buf(),
                 });
@@ -248,14 +249,6 @@ impl FileWatcher {
             FileWatcher::Polling { rx, .. } => rx.recv().ok(),
         }
     }
-
-    /// Try to receive a watch event without blocking.
-    pub fn try_recv(&self) -> Option<WatchEvent> {
-        match self {
-            FileWatcher::Native { rx, .. } => rx.try_recv().ok(),
-            FileWatcher::Polling { rx, .. } => rx.try_recv().ok(),
-        }
-    }
 }
 
 /// Add watch paths to a debouncer.
@@ -276,10 +269,10 @@ fn add_watch_paths_to_debouncer<W: Watcher, C: notify_debouncer_full::FileIdCach
     }
 
     // Watch config file's parent directory (to catch config changes)
-    if let Some(parent) = paths.config_path.parent() {
-        if parent.exists() {
-            debouncer.watch(parent, RecursiveMode::NonRecursive)?;
-        }
+    if let Some(parent) = paths.config_path.parent()
+        && parent.exists()
+    {
+        debouncer.watch(parent, RecursiveMode::NonRecursive)?;
     }
 
     Ok(())

@@ -2,6 +2,8 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use crate::util::title_case;
+
 // =============================================================================
 // Content items (documents and static files)
 // =============================================================================
@@ -16,112 +18,39 @@ pub enum ContentItem {
     Static(StaticFile),
 }
 
-impl ContentItem {
-    /// Get the source name this content belongs to.
-    pub fn source_name(&self) -> &str {
-        match self {
-            ContentItem::Document(doc) => &doc.source_name,
-            ContentItem::Static(file) => &file.source_name,
-        }
-    }
-
-    /// Get the source-relative path.
-    pub fn source_path(&self) -> &PathBuf {
-        match self {
-            ContentItem::Document(doc) => &doc.source_path,
-            ContentItem::Static(file) => &file.source_path,
-        }
-    }
-
-    /// Get the output path.
-    pub fn output_path(&self) -> &str {
-        match self {
-            ContentItem::Document(doc) => &doc.url_path,
-            ContentItem::Static(file) => &file.output_path,
-        }
-    }
-}
-
 // =============================================================================
 // Static files
 // =============================================================================
 
 /// A static file (image, CSS, JS, etc.) that gets copied to output.
-///
-/// Static files may optionally go through transformers (e.g., image optimization),
-/// but by default are just copied as-is.
 #[derive(Debug, Clone)]
 pub struct StaticFile {
-    /// Which source this file belongs to
-    pub source_name: String,
     /// Path relative to the source root (e.g., "images/screenshot.png")
     pub source_path: PathBuf,
     /// The output path this file will be written to (e.g., "/cli/images/screenshot.png")
     pub output_path: String,
-    /// The file's MIME type, if known
-    pub mime_type: Option<String>,
 }
 
 impl StaticFile {
     /// Create a new static file.
-    pub fn new(source_name: String, source_path: PathBuf, output_path: String) -> Self {
-        let mime_type = mime_from_path(&source_path);
+    pub fn new(_source_name: String, source_path: PathBuf, output_path: String) -> Self {
         Self {
-            source_name,
             source_path,
             output_path,
-            mime_type,
         }
     }
-
-    /// Returns true if this is an image file.
-    pub fn is_image(&self) -> bool {
-        self.mime_type
-            .as_ref()
-            .map(|m| m.starts_with("image/"))
-            .unwrap_or(false)
-    }
-}
-
-/// Guess MIME type from file extension.
-fn mime_from_path(path: &PathBuf) -> Option<String> {
-    let ext = path.extension()?.to_str()?;
-    let mime = match ext.to_lowercase().as_str() {
-        // Images
-        "png" => "image/png",
-        "jpg" | "jpeg" => "image/jpeg",
-        "gif" => "image/gif",
-        "svg" => "image/svg+xml",
-        "webp" => "image/webp",
-        "ico" => "image/x-icon",
-        // Web assets
-        "css" => "text/css",
-        "js" => "application/javascript",
-        "json" => "application/json",
-        "woff" => "font/woff",
-        "woff2" => "font/woff2",
-        "ttf" => "font/ttf",
-        "eot" => "application/vnd.ms-fontobject",
-        // Documents
-        "pdf" => "application/pdf",
-        "xml" => "application/xml",
-        "txt" => "text/plain",
-        _ => return None,
-    };
-    Some(mime.to_string())
 }
 
 // =============================================================================
 // Documents
 // =============================================================================
 
-/// A document flowing through the build pipeline.
+/// A document discovered in a source directory.
 ///
-/// Documents progress through stages:
-/// 1. Discovered: file path known, content not yet read
-/// 2. Loaded: raw content read from disk
-/// 3. Parsed: front matter extracted, content ready for transformation
-/// 4. Rendered: HTML output generated
+/// Contains all information needed to render the document:
+/// - Location info (source, paths)
+/// - Front matter metadata (title, description, etc.)
+/// - Raw markdown content (without front matter block)
 #[derive(Debug, Clone)]
 pub struct Document {
     /// Which source this document belongs to
@@ -132,8 +61,8 @@ pub struct Document {
     pub url_path: String,
     /// Front matter metadata
     pub front_matter: FrontMatter,
-    /// The document content (progresses through stages)
-    pub content: DocumentContent,
+    /// Raw markdown content (front matter already stripped)
+    pub raw_content: String,
 }
 
 /// Front matter metadata parsed from the document.
@@ -229,45 +158,21 @@ pub fn parse_front_matter(content: &str) -> ParsedContent {
     }
 }
 
-/// The content of a document at various stages of processing.
-#[derive(Debug, Clone)]
-pub enum DocumentContent {
-    /// Just discovered, content not loaded
-    Discovered,
-    /// Raw content loaded from disk
-    Raw(String),
-    /// Parsed but not yet transformed
-    /// (markdown without front matter, ready for transformation)
-    Parsed(String),
-    /// Rendered to HTML
-    Rendered(String),
-}
-
 impl Document {
-    /// Create a new discovered document (content not yet loaded).
-    pub fn discovered(source_name: String, source_path: PathBuf, url_path: String) -> Self {
-        Self {
-            source_name,
-            source_path,
-            url_path,
-            front_matter: FrontMatter::default(),
-            content: DocumentContent::Discovered,
-        }
-    }
-
-    /// Create a new discovered document with parsed front matter.
-    pub fn discovered_with_front_matter(
+    /// Create a new document with all fields.
+    pub fn new(
         source_name: String,
         source_path: PathBuf,
         url_path: String,
         front_matter: FrontMatter,
+        raw_content: String,
     ) -> Self {
         Self {
             source_name,
             source_path,
             url_path,
             front_matter,
-            content: DocumentContent::Discovered,
+            raw_content,
         }
     }
 
@@ -277,60 +182,10 @@ impl Document {
             self.source_path
                 .file_stem()
                 .and_then(|s| s.to_str())
-                .map(|s| title_case(s))
+                .map(title_case)
                 .unwrap_or_else(|| "Untitled".to_string())
         })
     }
-
-    /// Returns true if this document has been loaded from disk.
-    pub fn is_loaded(&self) -> bool {
-        !matches!(self.content, DocumentContent::Discovered)
-    }
-
-    /// Returns true if this document has been rendered to HTML.
-    pub fn is_rendered(&self) -> bool {
-        matches!(self.content, DocumentContent::Rendered(_))
-    }
-
-    /// Get the raw content, if available.
-    pub fn raw_content(&self) -> Option<&str> {
-        match &self.content {
-            DocumentContent::Raw(s) => Some(s),
-            _ => None,
-        }
-    }
-
-    /// Get the parsed content (markdown without front matter), if available.
-    pub fn parsed_content(&self) -> Option<&str> {
-        match &self.content {
-            DocumentContent::Parsed(s) => Some(s),
-            _ => None,
-        }
-    }
-
-    /// Get the rendered HTML, if available.
-    pub fn rendered_content(&self) -> Option<&str> {
-        match &self.content {
-            DocumentContent::Rendered(s) => Some(s),
-            _ => None,
-        }
-    }
-}
-
-/// Convert a filename slug to title case.
-/// "getting-started" -> "Getting Started"
-/// "installation" -> "Installation"
-fn title_case(s: &str) -> String {
-    s.split(|c| c == '-' || c == '_')
-        .map(|word| {
-            let mut chars = word.chars();
-            match chars.next() {
-                None => String::new(),
-                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
 }
 
 #[cfg(test)]
@@ -338,31 +193,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_title_case() {
-        assert_eq!(title_case("getting-started"), "Getting Started");
-        assert_eq!(title_case("installation"), "Installation");
-        assert_eq!(title_case("api_reference"), "Api Reference");
-        assert_eq!(title_case("README"), "README");
-    }
-
-    #[test]
     fn test_document_title_fallback() {
-        let doc = Document::discovered(
+        let doc = Document::new(
             "cli".to_string(),
             PathBuf::from("getting-started/installation.md"),
             "/cli/getting-started/installation".to_string(),
+            FrontMatter::default(),
+            "# Installation".to_string(),
         );
         assert_eq!(doc.title(), "Installation");
     }
 
     #[test]
     fn test_document_title_from_front_matter() {
-        let mut doc = Document::discovered(
+        let doc = Document::new(
             "cli".to_string(),
             PathBuf::from("intro.md"),
             "/cli/intro".to_string(),
+            FrontMatter {
+                title: Some("Welcome to the CLI".to_string()),
+                ..Default::default()
+            },
+            "# Welcome".to_string(),
         );
-        doc.front_matter.title = Some("Welcome to the CLI".to_string());
         assert_eq!(doc.title(), "Welcome to the CLI");
     }
 

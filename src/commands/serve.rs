@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::net::SocketAddr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use axum::Router;
 use axum::extract::State;
@@ -79,7 +79,7 @@ pub async fn run(args: &ServeArgs) -> Result<(), anyhow::Error> {
 
     // Build the site first
     println!("Building site...");
-    let result = do_build(&root_config, &base_path, parent_path.as_ref(), true).await?;
+    let result = do_build(&root_config, &base_path, parent_path.as_deref(), true).await?;
 
     println!(
         "Built {} documents, {} static files",
@@ -145,7 +145,7 @@ pub async fn run(args: &ServeArgs) -> Result<(), anyhow::Error> {
                                     match do_build(
                                         &rebuild_config,
                                         &rebuild_base,
-                                        rebuild_parent.as_ref(),
+                                        rebuild_parent.as_deref(),
                                         true,
                                     )
                                     .await
@@ -219,10 +219,10 @@ pub async fn run(args: &ServeArgs) -> Result<(), anyhow::Error> {
     println!("Press Ctrl+C to stop\n");
 
     // Open browser if requested
-    if args.open {
-        if let Err(e) = open::that(&url) {
-            eprintln!("Failed to open browser: {}", e);
-        }
+    if args.open
+        && let Err(e) = open::that(&url)
+    {
+        eprintln!("Failed to open browser: {}", e);
     }
 
     // Start the server
@@ -235,15 +235,15 @@ pub async fn run(args: &ServeArgs) -> Result<(), anyhow::Error> {
 /// Helper function to run the build
 async fn do_build(
     config: &RootConfig,
-    base_path: &PathBuf,
-    parent_path: Option<&PathBuf>,
+    base_path: &Path,
+    parent_path: Option<&Path>,
     dev_mode: bool,
 ) -> Result<crate::build::BuildResult, anyhow::Error> {
-    let mut builder = Builder::new(config.clone(), base_path.clone())
+    let mut builder = Builder::new(config.clone(), base_path.to_path_buf())
         .with_dev_mode(dev_mode)
         .with_live_reload(config.dev.live_reload);
     if let Some(parent_path) = parent_path {
-        builder = builder.with_theme_base_path(parent_path.clone());
+        builder = builder.with_theme_base_path(parent_path.to_path_buf());
     }
     Ok(builder.build().await?)
 }

@@ -146,7 +146,7 @@ pub struct SiteContext {
 }
 
 /// Information about the current page.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct PageInfo {
     pub title: String,
     pub url: String,
