@@ -8,7 +8,7 @@ site:
 
 theme:
   location:
-    path: ./themes/default
+    git: https://github.com/undox-rs/theme-default#main
   settings:
     logo:
       light: ./assets/logo/wordmark_light.png
@@ -25,7 +25,7 @@ sources:
     title: "Default Theme"
     url_prefix: /theme
     location:
-      path: ./themes/default
+      git: https://github.com/undox-rs/theme-default#main
 #  - name: sub
 #    title: "Subdocs"
 #    url_prefix: /sub
