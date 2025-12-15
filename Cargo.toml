@@ -1,6 +1,6 @@
 [package]
 name = "undox"
-version = "0.1.4"
+version = "0.1.5"
 description = "A static site generator for multi-repo documentation"
 repository = "https://github.com/undox-rs/undox"
 homepage = "https://undox.dev"
