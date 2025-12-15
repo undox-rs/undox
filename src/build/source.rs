@@ -168,7 +168,41 @@ impl ResolvedSource {
                             return Err(SourceError::NotADirectory(resolved));
                         }
 
-                        resolved
+                        // Check for undox.yaml to get content path and nav
+                        let child_config_path = resolved.join("undox.yaml");
+                        if child_config_path.exists()
+                            && let Ok(content) = std::fs::read_to_string(&child_config_path)
+                            && let Ok(subdocs_config) =
+                                serde_yaml::from_str::<LocalSubdocsConfig>(&content)
+                        {
+                            // Apply nav from child config if not set in parent
+                            if config.nav.is_none()
+                                && let Some(nav) = subdocs_config.nav
+                            {
+                                config.nav = Some(nav);
+                            }
+
+                            // Use content path from child config
+                            if let Some(content_location) = subdocs_config.content
+                                && let Some(cp) = content_location.as_path()
+                            {
+                                let content_dir = resolved.join(cp);
+                                if content_dir.exists() && content_dir.is_dir() {
+                                    return Ok(Self {
+                                        config,
+                                        local_path: content_dir,
+                                    });
+                                }
+                            }
+                        }
+
+                        // Fallback: look for content directory
+                        let content_dir = resolved.join("content");
+                        if content_dir.exists() && content_dir.is_dir() {
+                            content_dir
+                        } else {
+                            resolved
+                        }
                     }
                 }
             }

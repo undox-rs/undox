@@ -63,7 +63,7 @@ impl GitFetcher {
         // Ensure cache directory exists
         std::fs::create_dir_all(&self.cache_dir).map_err(GitError::CacheDir)?;
 
-        let repo_cache_dir = self.cache_dir.join(self.cache_key(&git.url));
+        let repo_cache_dir = self.cache_dir.join(self.cache_key(git));
 
         if repo_cache_dir.exists() {
             // Update existing clone
@@ -78,10 +78,16 @@ impl GitFetcher {
 
     /// Generate a cache key (directory name) from a URL.
     ///
-    /// Uses a hash of the URL to create a short, filesystem-safe name.
-    fn cache_key(&self, url: &str) -> String {
+    /// Uses a hash of the URL, git_ref, and subpath to create a short, filesystem-safe name.
+    fn cache_key(&self, location: &GitLocation) -> String {
         let mut hasher = DefaultHasher::new();
-        url.hash(&mut hasher);
+        location.url.hash(&mut hasher);
+        if let Some(git_ref) = &location.git_ref {
+            git_ref.hash(&mut hasher);
+        }
+        if let Some(subpath) = &location.subpath {
+            subpath.to_string_lossy().hash(&mut hasher);
+        }
         format!("{:016x}", hasher.finish())
     }
 
