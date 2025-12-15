@@ -194,15 +194,27 @@ pub type NavConfig = Vec<NavItem>;
 ///       - sync.md
 ///       - Search: search.md
 ///   - guides/                            # Auto-expand directory
+///   - path: configuration.md             # Link with children
+///     children:
+///       - configuration/root.md
+///       - configuration/sub.md
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum NavItem {
-    /// A section with nested items
+    /// A section with nested items (no link, just a heading)
     /// Must come first so serde tries it before the map variant
     Section {
         section: String,
         items: Vec<NavItem>,
+    },
+    /// A link with nested children
+    /// Use this when a page has sub-pages underneath it
+    LinkWithChildren {
+        path: String,
+        #[serde(default)]
+        title: Option<String>,
+        children: Vec<NavItem>,
     },
     /// A titled page: { "Display Title": "path/to/file.md" }
     Titled(std::collections::HashMap<String, String>),

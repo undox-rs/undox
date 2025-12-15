@@ -106,6 +106,8 @@ Nav items can be:
 - **Directories**: `advanced/` - auto-expand all pages in that directory
 - **Sections**: Group items under a heading
 
+**Auto-generated navigation** also automatically merges files with matching directories. For example, if you have both `configuration.md` and a `configuration/` directory, the directory contents become children of the `configuration.md` link rather than a separate section.
+
 You can also use titled items for custom link text:
 
 ```yaml
@@ -116,6 +118,31 @@ nav:
       - Getting Started: quickstart.md
       - Config Reference: configuration.md
 ```
+
+### Links with Children
+
+When a page has related sub-pages, you can nest them as children of the parent link. This creates a hierarchical navigation where the children appear indented under the parent:
+
+```yaml
+nav:
+  - section: Guide
+    items:
+      - path: configuration.md
+        title: Configuration  # optional
+        children:
+          - configuration/root.md
+          - configuration/child.md
+      - other-guide.md
+```
+
+This renders as:
+- **Guide** (section heading)
+  - **Configuration** (clickable link to `configuration.md`)
+    - Root Config (child link, indented)
+    - Child Config (child link, indented)
+  - Other Guide
+
+Children can be any nav item type, including sections or other links with children, allowing for deeply nested navigation structures.
 
 ### Multiple Sources
 

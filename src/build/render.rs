@@ -156,24 +156,30 @@ pub struct PageInfo {
     pub extra: std::collections::HashMap<String, serde_yaml::Value>,
 }
 
-/// A navigation section (group of links).
+/// A navigation section (group of links and other sections).
 #[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
 pub enum NavSection {
     /// A section with a title and nested items
     Section {
         section: String,
-        items: Vec<NavLink>,
+        items: Vec<NavSection>,
     },
     /// A standalone link (no section header)
     Link(NavLink),
 }
 
-/// A single navigation link.
+/// A single navigation link, optionally with nested children.
+///
+/// When a document (e.g., `config.md`) has a matching directory (`config/`),
+/// the directory contents become children of the link rather than a separate section.
 #[derive(Debug, Clone, Serialize)]
 pub struct NavLink {
     pub title: String,
     pub url: String,
+    /// Nested navigation items (when this link has child pages)
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub children: Vec<NavSection>,
 }
 
 /// A table of contents entry for the current page.

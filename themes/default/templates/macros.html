@@ -8,3 +8,39 @@
 <img src="{{ light_src }}" alt="{{ alt }}" class="macro-image-light" />
 <img src="{{ dark_src }}" alt="{{ alt }}" class="macro-image-dark" />
 {% endmacro image %}
+
+{#
+  Renders a navigation item recursively.
+  Can be either a link (has url/title) or a section (has section/items).
+  depth: nesting level for indentation (0 = top level)
+#}
+{% macro nav_item(item, page_url, depth=0) %}
+{% if item.section %}
+{# It's a section with nested items #}
+<div class="nav-section nav-depth-{{ depth }}">
+  <div class="nav-section-title">{{ item.section }}</div>
+  <ul class="nav-list">
+    {% for child in item.items %}
+    {{ macros::nav_item(item=child, page_url=page_url, depth=depth + 1) }}
+    {% endfor %}
+  </ul>
+</div>
+{% else %}
+{# It's a link, possibly with children #}
+<li class="nav-item nav-depth-{{ depth }}">
+  <a
+    href="{{ item.url }}"
+    class="nav-link{% if item.url == page_url %} active{% endif %}{% if item.children %} has-children{% endif %}"
+  >
+    {{ item.title }}
+  </a>
+  {% if item.children %}
+  <ul class="nav-list nav-children">
+    {% for child in item.children %}
+    {{ macros::nav_item(item=child, page_url=page_url, depth=depth + 1) }}
+    {% endfor %}
+  </ul>
+  {% endif %}
+</li>
+{% endif %}
+{% endmacro nav_item %}

@@ -461,6 +461,26 @@
         margin: 0.125rem 0;
       }
 
+      /* Nested navigation indentation */
+      .nav-depth-1 {
+        margin-left: 0.75rem;
+      }
+      .nav-depth-1 > .nav-section-title {
+        font-size: 0.65rem;
+      }
+      .nav-depth-2 {
+        margin-left: 0.75rem;
+      }
+      .nav-depth-2 > .nav-section-title {
+        font-size: 0.6rem;
+      }
+
+      /* Link children (nested under a parent link) */
+      .nav-children {
+        margin-left: 0.75rem;
+        margin-top: 0.125rem;
+      }
+
       .nav-link {
         display: block;
         padding: 0.3rem 0.5rem;
@@ -1067,23 +1087,11 @@
           </a>
           {% endif %} {% endfor %}
         </div>
-        {% endif %} {% for item in nav %} {% if item.section %}
-        <div class="nav-section">
-          <div class="nav-section-title">{{ item.section }}</div>
-          <ul class="nav-list">
-            {% for child in item.items %}
-            <li class="nav-item">
-              <a
-                href="{{ child.url }}"
-                class="nav-link{% if child.url == page.url %} active{% endif %}"
-              >
-                {{ child.title }}
-              </a>
-            </li>
-            {% endfor %}
-          </ul>
-        </div>
+        {% endif %} {% for item in nav %}
+        {% if item.section %}
+        {{ macros::nav_item(item=item, page_url=page.url, depth=0) }}
         {% else %}
+        {# Top-level link without section wrapper #}
         <div class="nav-section">
           <ul class="nav-list">
             <li class="nav-item">
@@ -1096,7 +1104,8 @@
             </li>
           </ul>
         </div>
-        {% endif %} {% endfor %}
+        {% endif %}
+        {% endfor %}
       </nav>
       {% endblock %}
 
