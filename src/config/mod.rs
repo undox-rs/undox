@@ -9,14 +9,12 @@ mod load;
 mod resolve;
 mod types;
 
-use std::path::PathBuf;
-
 use serde::{Deserialize, Deserializer, Serialize};
 
 // Re-export all types for convenient access
 pub use types::{
-    ChildConfig, DevConfig, GitConfig, MarkdownConfig, NavConfig, NavItem, RootConfig, SiteConfig,
-    SourceConfig, SourceLocation, ThemeConfig, WatchConfig,
+    ChildConfig, DevConfig, GitLocation, Location, MarkdownConfig, NavConfig, NavItem, RootConfig,
+    SiteConfig, SourceConfig, SourceLocation, ThemeConfig, WatchConfig,
 };
 
 // =============================================================================
@@ -25,9 +23,6 @@ pub use types::{
 
 #[derive(thiserror::Error, Debug)]
 pub enum ConfigError {
-    #[error("failed to encode config file path as a unicode string: {0}")]
-    EncodePath(PathBuf),
-
     #[error("failed to deserialize config: {0}")]
     Deserialize(#[from] config::ConfigError),
 
@@ -70,26 +65,26 @@ impl<'de> Deserialize<'de> for Config {
         use serde::de::Error;
 
         // First deserialize into a generic Value to inspect the structure
-        let value = serde_json::Value::deserialize(deserializer)?;
+        let value = serde_yaml::Value::deserialize(deserializer)?;
 
-        let obj = value.as_object().ok_or_else(|| {
+        let obj = value.as_mapping().ok_or_else(|| {
             D::Error::custom("config must be a YAML/JSON object, not a scalar or array")
         })?;
 
         // Determine which variant based on distinguishing fields
-        let has_site = obj.contains_key("site");
-        let has_parent = obj.contains_key("parent");
+        let has_site = obj.contains_key(&serde_yaml::Value::String("site".to_string()));
+        let has_parent = obj.contains_key(&serde_yaml::Value::String("parent".to_string()));
 
         match (has_site, has_parent) {
             (true, false) => {
                 // Root config
-                serde_json::from_value::<RootConfig>(value)
+                serde_yaml::from_value::<RootConfig>(value)
                     .map(Config::Root)
                     .map_err(|e| D::Error::custom(format_root_error(e)))
             }
             (false, true) => {
                 // Child config
-                serde_json::from_value::<ChildConfig>(value)
+                serde_yaml::from_value::<ChildConfig>(value)
                     .map(Config::Child)
                     .map_err(|e| D::Error::custom(format!("invalid child config: {e}")))
             }
@@ -104,21 +99,24 @@ impl<'de> Deserialize<'de> for Config {
 }
 
 /// Format a root config deserialization error with helpful context
-fn format_root_error(e: serde_json::Error) -> String {
+fn format_root_error(e: serde_yaml::Error) -> String {
     let msg = e.to_string();
 
     // serde_json errors use "at line X column Y" for syntax errors
     // and path info for structural errors
     // Check for common issues and provide specific guidance
     if msg.contains("missing field `sources`") {
-        return "invalid config: 'sources' list is required\n\nExample:\n  sources:\n    - name: docs\n      path: ./content".to_string();
+        return "invalid config: 'sources' list is required\n\nExample:\n  sources:\n    - name: docs\n      local:\n        path: ./content".to_string();
     }
     if msg.contains("missing field `name`") {
         // Could be site.name or source[].name - provide both possibilities
         return "invalid config: missing required 'name' field (check 'site.name' and each source's 'name')".to_string();
     }
-    if msg.contains("missing field `path`") {
-        return "invalid config: each source must have a 'path' field".to_string();
+    if msg.contains("missing field `theme`") {
+        return "invalid config: 'theme' is required\n\nExample:\n  theme:\n    location:\n      path: ./themes/default".to_string();
+    }
+    if msg.contains("location must have either") {
+        return "invalid config: each source must have either 'local: { path: ... }' for inline content or 'location: { path/git: ... }' for external sources".to_string();
     }
 
     format!("invalid config: {msg}")

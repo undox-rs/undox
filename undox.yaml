@@ -3,9 +3,12 @@ site:
   url: "https://undox.dev"
   favicon: ./assets/logo/logo.png
   output: "_site"
+  repository: "https://github.com/undox/undox"
+  edit_path: "docs/"
 
 theme:
-  name: default
+  location:
+    path: ./themes/default
   settings:
     logo:
       light: ./assets/logo/wordmark_light.png
@@ -15,21 +18,22 @@ theme:
 sources:
   - name: docs
     title: "undox"
-    content_path: ./docs/content
     url_prefix: /
-    repo_url: "https://github.com/undox/undox"
-    edit_path: "docs/"
+    local:
+      path: ./docs/content
   - name: theme
     title: "Default Theme"
-    path: ./themes/default
     url_prefix: /theme
+    location:
+      path: ./themes/default
 #  - name: sub
 #    title: "Subdocs"
-#    git:
-#      url: https://github.com/BinaryMuse/undox-subdocs
-#      ref: main
-#      path: content
 #    url_prefix: /sub
+#    location:
+#      git:
+#        url: https://github.com/BinaryMuse/undox-subdocs
+#        ref: main
+#        subpath: content
 
 markdown:
   extensions:

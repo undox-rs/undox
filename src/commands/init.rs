@@ -1,6 +1,10 @@
+use std::path::PathBuf;
+
 use crate::{
     InitArgs,
-    config::{Config, DevConfig, MarkdownConfig, RootConfig, SiteConfig, ThemeConfig},
+    config::{
+        Config, DevConfig, Location, MarkdownConfig, RootConfig, SiteConfig, ThemeConfig,
+    },
 };
 
 pub async fn run(args: &InitArgs) -> Result<(), anyhow::Error> {
@@ -28,9 +32,16 @@ pub async fn run(args: &InitArgs) -> Result<(), anyhow::Error> {
             url: Some("https://my-undox-site.com".into()),
             output: "_site".into(),
             favicon: None,
+            repository: None,
+            edit_path: None,
         },
         sources: vec![],
-        theme: ThemeConfig::default(),
+        theme: ThemeConfig {
+            location: Location::Path {
+                path: PathBuf::from("./themes/default"),
+            },
+            settings: serde_json::Value::Object(Default::default()),
+        },
         markdown: MarkdownConfig::default(),
         dev: DevConfig::default(),
     });

@@ -23,14 +23,12 @@ impl Config {
 
     /// Load the config from a file path
     pub(crate) async fn load_from_file(path: &Path) -> Result<Self, ConfigError> {
-        let path_str = path
-            .as_os_str()
-            .to_str()
-            .ok_or_else(|| ConfigError::EncodePath(path.to_path_buf()))?;
+        let content = std::fs::read_to_string(path).map_err(|e| {
+            ConfigError::Validation(format!("failed to read config file: {}", e))
+        })?;
 
-        Ok(config::Config::builder()
-            .add_source(config::File::new(path_str, config::FileFormat::Yaml))
-            .build()?
-            .try_deserialize::<Config>()?)
+        serde_yaml::from_str(&content).map_err(|e| {
+            ConfigError::Validation(format!("failed to parse config: {}", e))
+        })
     }
 }

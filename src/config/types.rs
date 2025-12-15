@@ -8,6 +8,142 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 // =============================================================================
+// Location types - unified path/git reference
+// =============================================================================
+
+/// A unified location specifier for content.
+/// Can be either a local path or a git repository reference.
+///
+/// YAML formats:
+/// ```yaml
+/// # Path variant
+/// path: ./local/path
+///
+/// # Git variant - compact string format
+/// git: https://repo#ref
+///
+/// # Git variant - expanded format
+/// git:
+///   url: https://repo
+///   ref: main
+///   subpath: docs
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Location {
+    /// A local filesystem path
+    Path { path: PathBuf },
+    /// A git repository reference (compact string or expanded object)
+    Git { git: GitValue },
+}
+
+/// Git value that can be either a compact string or expanded object.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GitValue {
+    /// Compact format: "https://repo#ref"
+    Compact(String),
+    /// Expanded format with url, ref, and subpath
+    Expanded(GitLocation),
+}
+
+/// Git repository location details (expanded format).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitLocation {
+    /// Repository URL
+    pub url: String,
+    /// Branch, tag, or commit (defaults to default branch)
+    #[serde(rename = "ref", default, skip_serializing_if = "Option::is_none")]
+    pub git_ref: Option<String>,
+    /// Subdirectory within the repository
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subpath: Option<PathBuf>,
+}
+
+impl GitLocation {
+    /// Parse a compact git string like "https://repo#ref" into GitLocation
+    pub fn from_compact(s: &str) -> Self {
+        if let Some((url, git_ref)) = s.split_once('#') {
+            GitLocation {
+                url: url.to_string(),
+                git_ref: Some(git_ref.to_string()),
+                subpath: None,
+            }
+        } else {
+            GitLocation {
+                url: s.to_string(),
+                git_ref: None,
+                subpath: None,
+            }
+        }
+    }
+}
+
+impl GitValue {
+    /// Get the GitLocation, parsing compact format if needed
+    pub fn to_location(&self) -> GitLocation {
+        match self {
+            GitValue::Compact(s) => GitLocation::from_compact(s),
+            GitValue::Expanded(loc) => loc.clone(),
+        }
+    }
+}
+
+#[allow(dead_code)]
+impl Location {
+    /// Returns the path if this is a Path location
+    pub fn as_path(&self) -> Option<&PathBuf> {
+        match self {
+            Location::Path { path } => Some(path),
+            Location::Git { .. } => None,
+        }
+    }
+
+    /// Returns the git location if this is a Git location
+    pub fn as_git(&self) -> Option<GitLocation> {
+        match self {
+            Location::Path { .. } => None,
+            Location::Git { git } => Some(git.to_location()),
+        }
+    }
+
+    /// Returns the path, or an error message if this is a Git location
+    pub fn require_path(&self) -> Result<&PathBuf, String> {
+        match self {
+            Location::Path { path } => Ok(path),
+            Location::Git { git } => Err(match git {
+                GitValue::Compact(s) => s.clone(),
+                GitValue::Expanded(loc) => loc.url.clone(),
+            }),
+        }
+    }
+
+    /// Check if this location is a git URL
+    pub fn is_git(&self) -> bool {
+        matches!(self, Location::Git { .. })
+    }
+
+    /// Check if this location is a local path
+    pub fn is_path(&self) -> bool {
+        matches!(self, Location::Path { .. })
+    }
+
+    /// Resolve a relative path against a base path
+    pub fn resolve_path(&self, base_path: &std::path::Path) -> Option<PathBuf> {
+        match self {
+            Location::Path { path } => {
+                if path.is_relative() {
+                    Some(base_path.join(path))
+                } else {
+                    Some(path.clone())
+                }
+            }
+            Location::Git { .. } => None,
+        }
+    }
+}
+
+// =============================================================================
 // Root and child configs
 // =============================================================================
 
@@ -16,7 +152,6 @@ use serde::{Deserialize, Serialize};
 pub struct RootConfig {
     pub site: SiteConfig,
     pub sources: Vec<SourceConfig>,
-    #[serde(default)]
     pub theme: ThemeConfig,
     #[serde(default)]
     pub markdown: MarkdownConfig,
@@ -28,26 +163,38 @@ pub struct RootConfig {
 /// Child configuration - used in source repos to point back to the parent site.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChildConfig {
-    /// URL or local path to the parent site's undox.yaml
-    pub parent: String,
-    /// Branch, tag, or commit to checkout when parent is a git URL
-    #[serde(rename = "ref")]
-    pub parent_ref: Option<String>,
     /// Which source in the parent config this repo corresponds to
-    pub source: String,
-    /// Optional overrides for source-specific settings
+    pub name: String,
+    /// Location of the parent site's undox.yaml
+    pub parent: Location,
+    /// Path to the content directory
+    pub content: Location,
+    /// Optional overrides for root config settings
     #[serde(default)]
-    pub overrides: SourceOverrides,
+    pub overrides: Option<RootConfigOverrides>,
     /// Development-specific settings
     pub dev: Option<DevConfig>,
 }
 
-/// Settings that can be overridden in a child config.
+/// Partial root config that can be used as overrides in child config.
+/// Runtime validation will ensure only allowed fields are set.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct SourceOverrides {
-    pub repo_url: Option<String>,
-    pub edit_path: Option<String>,
+pub struct RootConfigOverrides {
+    /// Site config overrides
+    #[serde(default)]
+    pub site: Option<SiteConfigOverrides>,
+    /// Navigation override for this source
+    #[serde(default)]
     pub nav: Option<NavConfig>,
+    // Note: sources, theme, markdown are intentionally not included
+    // and will be validated at runtime if present
+}
+
+/// Partial site config for overrides
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SiteConfigOverrides {
+    pub repository: Option<String>,
+    pub edit_path: Option<String>,
 }
 
 // =============================================================================
@@ -62,6 +209,10 @@ pub struct SiteConfig {
     pub output: PathBuf,
     /// Path to the site favicon (relative to config file)
     pub favicon: Option<String>,
+    /// Repository URL for "edit on GitHub" links
+    pub repository: Option<String>,
+    /// Path within the repo where docs live (for edit links)
+    pub edit_path: Option<String>,
 }
 
 fn default_output() -> PathBuf {
@@ -74,25 +225,11 @@ fn default_output() -> PathBuf {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeConfig {
-    /// Theme name (built-in) or path to custom theme
-    #[serde(default = "default_theme_name")]
-    pub name: String,
+    /// Location of the theme (path or git)
+    pub location: Location,
     /// Arbitrary settings passed to templates as `theme.*`
     #[serde(default)]
     pub settings: serde_json::Value,
-}
-
-fn default_theme_name() -> String {
-    "default".to_string()
-}
-
-impl Default for ThemeConfig {
-    fn default() -> Self {
-        Self {
-            name: default_theme_name(),
-            settings: serde_json::Value::Object(Default::default()),
-        }
-    }
 }
 
 // =============================================================================
@@ -107,10 +244,6 @@ pub struct SourceConfig {
     pub title: Option<String>,
     /// URL path prefix (e.g., "/cli" -> site.com/cli/...)
     pub url_prefix: Option<String>,
-    /// Repository URL for "edit on GitHub" links
-    pub repo_url: Option<String>,
-    /// Path within the repo where docs live (for edit links)
-    pub edit_path: Option<String>,
     /// Navigation structure (auto-generated if omitted)
     pub nav: Option<NavConfig>,
     /// Where the content comes from
@@ -122,26 +255,31 @@ pub struct SourceConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum SourceLocation {
+    /// External source (local or remote) with its own undox.yaml config
+    Remote { location: Location },
     /// Local content directory (content belongs to the root config)
-    ContentPath { content_path: PathBuf },
-    /// Local sub-docs directory (has its own undox.yaml, like git but local)
-    LocalPath { path: PathBuf },
-    /// Remote git repository (sub-docs with their own config)
-    Git { git: GitConfig },
+    Local { local: Location },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GitConfig {
-    /// Repository URL
-    pub url: String,
-    /// Branch, tag, or commit (defaults to default branch)
-    #[serde(rename = "ref")]
-    pub git_ref: Option<String>,
-    /// Path within the repository to the docs
-    pub path: Option<PathBuf>,
-    /// Whether to use sparse checkout
-    #[serde(default)]
-    pub sparse: bool,
+#[allow(dead_code)]
+impl SourceLocation {
+    /// Check if this is a local (inline) source
+    pub fn is_local(&self) -> bool {
+        matches!(self, SourceLocation::Local { .. })
+    }
+
+    /// Check if this is a remote (external) source
+    pub fn is_remote(&self) -> bool {
+        matches!(self, SourceLocation::Remote { .. })
+    }
+
+    /// Get the inner location
+    pub fn location(&self) -> &Location {
+        match self {
+            SourceLocation::Remote { location } => location,
+            SourceLocation::Local { local } => local,
+        }
+    }
 }
 
 // =============================================================================
@@ -228,8 +366,8 @@ pub enum NavItem {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DevConfig {
-    /// Override parent path for local development
-    pub parent: Option<String>,
+    /// Override parent location for local development
+    pub parent: Option<Location>,
     /// File watching configuration
     #[serde(default)]
     pub watch: WatchConfig,

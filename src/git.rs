@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use git2::{FetchOptions, Repository};
 
-use crate::config::GitConfig;
+use crate::config::GitLocation;
 
 // =============================================================================
 // Errors
@@ -52,22 +52,25 @@ impl GitFetcher {
         Self { cache_dir }
     }
 
-    /// Fetch a git repository and return the local path to the clone.
+    /// Fetch a git repository from a GitLocation and return the local path to the clone.
     ///
     /// If the repository is already cached, it will be updated (fetch + checkout).
     /// Otherwise, a fresh clone will be performed.
-    pub fn fetch(&self, config: &GitConfig) -> Result<PathBuf, GitError> {
+    ///
+    /// Note: This returns the repository root. Use `git.subpath` separately to
+    /// navigate to a subdirectory within the repo.
+    pub fn fetch_location(&self, git: &GitLocation) -> Result<PathBuf, GitError> {
         // Ensure cache directory exists
         std::fs::create_dir_all(&self.cache_dir).map_err(GitError::CacheDir)?;
 
-        let repo_cache_dir = self.cache_dir.join(self.cache_key(&config.url));
+        let repo_cache_dir = self.cache_dir.join(self.cache_key(&git.url));
 
         if repo_cache_dir.exists() {
             // Update existing clone
-            self.update_repo(&repo_cache_dir, config)?;
+            self.update_repo(&repo_cache_dir, &git.url, git.git_ref.as_deref())?;
         } else {
             // Fresh clone
-            self.clone_repo(&repo_cache_dir, config)?;
+            self.clone_repo(&repo_cache_dir, &git.url, git.git_ref.as_deref())?;
         }
 
         Ok(repo_cache_dir)
@@ -83,27 +86,36 @@ impl GitFetcher {
     }
 
     /// Clone a repository into the cache directory.
-    fn clone_repo(&self, target_dir: &Path, config: &GitConfig) -> Result<(), GitError> {
-        eprintln!("Cloning {}...", config.url);
+    fn clone_repo(
+        &self,
+        target_dir: &Path,
+        url: &str,
+        git_ref: Option<&str>,
+    ) -> Result<(), GitError> {
+        eprintln!("Cloning {}...", url);
 
         // Clone the repository
-        let repo =
-            Repository::clone(&config.url, target_dir).map_err(|e| GitError::CloneFailed {
-                url: config.url.clone(),
-                source: e,
-            })?;
+        let repo = Repository::clone(url, target_dir).map_err(|e| GitError::CloneFailed {
+            url: url.to_string(),
+            source: e,
+        })?;
 
         // Checkout the requested ref if specified
-        if let Some(ref git_ref) = config.git_ref {
-            self.checkout_ref(&repo, &config.url, git_ref)?;
+        if let Some(git_ref) = git_ref {
+            self.checkout_ref(&repo, url, git_ref)?;
         }
 
         Ok(())
     }
 
     /// Update an existing cached repository.
-    fn update_repo(&self, repo_dir: &Path, config: &GitConfig) -> Result<(), GitError> {
-        eprintln!("Updating cached repository for {}...", config.url);
+    fn update_repo(
+        &self,
+        repo_dir: &Path,
+        url: &str,
+        git_ref: Option<&str>,
+    ) -> Result<(), GitError> {
+        eprintln!("Updating cached repository for {}...", url);
 
         let repo = Repository::open(repo_dir).map_err(GitError::OpenRepo)?;
 
@@ -111,7 +123,7 @@ impl GitFetcher {
         let mut remote = repo
             .find_remote("origin")
             .map_err(|e| GitError::FetchFailed {
-                url: config.url.clone(),
+                url: url.to_string(),
                 source: e,
             })?;
 
@@ -119,13 +131,13 @@ impl GitFetcher {
         remote
             .fetch(&[] as &[&str], Some(&mut fetch_options), None)
             .map_err(|e| GitError::FetchFailed {
-                url: config.url.clone(),
+                url: url.to_string(),
                 source: e,
             })?;
 
         // Checkout the requested ref
-        let git_ref = config.git_ref.as_deref().unwrap_or("HEAD");
-        self.checkout_ref(&repo, &config.url, git_ref)?;
+        let git_ref = git_ref.unwrap_or("HEAD");
+        self.checkout_ref(&repo, url, git_ref)?;
 
         Ok(())
     }

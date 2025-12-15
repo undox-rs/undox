@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
-use crate::config::{NavConfig, SourceConfig, SourceLocation};
+use crate::config::{Location, NavConfig, SourceConfig, SourceLocation};
 use crate::git::GitFetcher;
 
 use super::document::{ContentItem, Document, FrontMatter, StaticFile, parse_front_matter};
@@ -12,7 +12,7 @@ use super::paths::{source_path_to_url, static_path_to_url};
 /// Partial config for local sub-docs (just the fields we need)
 #[derive(Deserialize)]
 struct LocalSubdocsConfig {
-    content_path: Option<PathBuf>,
+    content: Option<Location>,
     nav: Option<NavConfig>,
 }
 
@@ -27,6 +27,9 @@ pub enum SourceError {
 
     #[error("source path is not a directory: {0}")]
     NotADirectory(PathBuf),
+
+    #[error("source location must be a path, not git: {0}")]
+    LocalMustBePath(String),
 
     #[error("failed to read directory {path}: {source}")]
     ReadDir {
@@ -68,27 +71,13 @@ impl ResolvedSource {
         cache_dir: &Path,
     ) -> Result<Self, SourceError> {
         let local_path = match &config.location {
-            SourceLocation::ContentPath { content_path } => {
+            SourceLocation::Local { local } => {
+                // Local content - must be a path, not git
+                let path = local.require_path().map_err(|git_url| {
+                    SourceError::LocalMustBePath(git_url)
+                })?;
+
                 // Resolve relative paths against base_path
-                let resolved = if content_path.is_relative() {
-                    base_path.join(content_path)
-                } else {
-                    content_path.clone()
-                };
-
-                // Validate the path exists and is a directory
-                if !resolved.exists() {
-                    return Err(SourceError::PathNotFound(resolved));
-                }
-                if !resolved.is_dir() {
-                    return Err(SourceError::NotADirectory(resolved));
-                }
-
-                resolved
-            }
-            SourceLocation::LocalPath { path } => {
-                // Local sub-docs - resolve the path and look for content
-                // Similar to git sources but without fetching
                 let resolved = if path.is_relative() {
                     base_path.join(path)
                 } else {
@@ -103,57 +92,84 @@ impl ResolvedSource {
                     return Err(SourceError::NotADirectory(resolved));
                 }
 
-                // Check for undox.yaml to get content_path and nav
-                let child_config_path = resolved.join("undox.yaml");
-                if child_config_path.exists()
-                    && let Ok(content) = std::fs::read_to_string(&child_config_path)
-                    && let Ok(subdocs_config) = serde_yaml::from_str::<LocalSubdocsConfig>(&content)
-                {
-                    // Apply nav from child config if not set in parent
-                    if config.nav.is_none()
-                        && let Some(nav) = subdocs_config.nav
-                    {
-                        config.nav = Some(nav);
-                    }
-
-                    // Use content_path from child config
-                    if let Some(cp) = subdocs_config.content_path {
-                        let content_dir = resolved.join(&cp);
-                        if content_dir.exists() && content_dir.is_dir() {
-                            return Ok(Self {
-                                config,
-                                local_path: content_dir,
-                            });
-                        }
-                    }
-                }
-
-                // Fallback: look for content directory
-                let content_dir = resolved.join("content");
-                if content_dir.exists() && content_dir.is_dir() {
-                    content_dir
-                } else {
-                    resolved
-                }
+                resolved
             }
-            SourceLocation::Git { git } => {
-                // Fetch/update the git repository
-                let fetcher = GitFetcher::new(cache_dir.to_path_buf());
-                let repo_path = fetcher.fetch(git)?;
+            SourceLocation::Remote { location } => {
+                match location {
+                    Location::Path { path } => {
+                        // Remote source with local path (has its own undox.yaml)
+                        let resolved = if path.is_relative() {
+                            base_path.join(path)
+                        } else {
+                            path.clone()
+                        };
 
-                // If git.path is set, use that subdirectory within the repo
-                match &git.path {
-                    Some(subpath) => {
-                        let full_path = repo_path.join(subpath);
-                        if !full_path.exists() {
-                            return Err(SourceError::PathNotFound(full_path));
+                        // Validate the path exists and is a directory
+                        if !resolved.exists() {
+                            return Err(SourceError::PathNotFound(resolved));
                         }
-                        if !full_path.is_dir() {
-                            return Err(SourceError::NotADirectory(full_path));
+                        if !resolved.is_dir() {
+                            return Err(SourceError::NotADirectory(resolved));
                         }
-                        full_path
+
+                        // Check for undox.yaml to get content path and nav
+                        let child_config_path = resolved.join("undox.yaml");
+                        if child_config_path.exists()
+                            && let Ok(content) = std::fs::read_to_string(&child_config_path)
+                            && let Ok(subdocs_config) =
+                                serde_yaml::from_str::<LocalSubdocsConfig>(&content)
+                        {
+                            // Apply nav from child config if not set in parent
+                            if config.nav.is_none()
+                                && let Some(nav) = subdocs_config.nav
+                            {
+                                config.nav = Some(nav);
+                            }
+
+                            // Use content path from child config
+                            if let Some(content_location) = subdocs_config.content
+                                && let Some(cp) = content_location.as_path()
+                            {
+                                let content_dir = resolved.join(cp);
+                                if content_dir.exists() && content_dir.is_dir() {
+                                    return Ok(Self {
+                                        config,
+                                        local_path: content_dir,
+                                    });
+                                }
+                            }
+                        }
+
+                        // Fallback: look for content directory
+                        let content_dir = resolved.join("content");
+                        if content_dir.exists() && content_dir.is_dir() {
+                            content_dir
+                        } else {
+                            resolved
+                        }
                     }
-                    None => repo_path,
+                    Location::Git { git } => {
+                        // Remote git source
+                        let git_loc = git.to_location();
+                        let fetcher = GitFetcher::new(cache_dir.to_path_buf());
+                        let repo_path = fetcher.fetch_location(&git_loc)?;
+
+                        // Apply subpath if specified
+                        let resolved = if let Some(ref subpath) = git_loc.subpath {
+                            repo_path.join(subpath)
+                        } else {
+                            repo_path
+                        };
+
+                        if !resolved.exists() {
+                            return Err(SourceError::PathNotFound(resolved));
+                        }
+                        if !resolved.is_dir() {
+                            return Err(SourceError::NotADirectory(resolved));
+                        }
+
+                        resolved
+                    }
                 }
             }
         };
@@ -300,11 +316,11 @@ mod tests {
             name: "cli".to_string(),
             title: Some("CLI".to_string()),
             url_prefix: Some("/cli".to_string()),
-            repo_url: None,
-            edit_path: None,
             nav: None,
-            location: SourceLocation::ContentPath {
-                content_path: PathBuf::from("./docs"),
+            location: SourceLocation::Local {
+                local: Location::Path {
+                    path: PathBuf::from("./docs"),
+                },
             },
         };
 
@@ -328,11 +344,11 @@ mod tests {
             name: "docs".to_string(),
             title: Some("Docs".to_string()),
             url_prefix: Some("/".to_string()),
-            repo_url: None,
-            edit_path: None,
             nav: None,
-            location: SourceLocation::ContentPath {
-                content_path: PathBuf::from("./docs"),
+            location: SourceLocation::Local {
+                local: Location::Path {
+                    path: PathBuf::from("./docs"),
+                },
             },
         };
 

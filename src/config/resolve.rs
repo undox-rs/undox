@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use crate::git::GitFetcher;
 
-use super::types::{ChildConfig, GitConfig, RootConfig, SourceLocation};
+use super::types::{ChildConfig, Location, RootConfig, SourceLocation};
 use super::{Config, ConfigError};
 
 /// Result of resolving a child config, containing the synthetic root config
@@ -30,36 +30,14 @@ impl ChildConfig {
         cache_dir: &Path,
     ) -> Result<ResolvedChildConfig, ConfigError> {
         // Use dev.parent override if set, otherwise use parent
-        let parent_url = self
+        let parent_location = self
             .dev
             .as_ref()
             .and_then(|d| d.parent.as_ref())
             .unwrap_or(&self.parent);
 
-        // Determine if parent is a git URL or local path
-        let parent_path = if parent_url.starts_with("http://")
-            || parent_url.starts_with("https://")
-            || parent_url.starts_with("git@")
-        {
-            // It's a git URL - fetch it
-            eprintln!("Fetching parent config from {}...", parent_url);
-            let fetcher = GitFetcher::new(cache_dir.to_path_buf());
-            let git_config = GitConfig {
-                url: parent_url.clone(),
-                git_ref: self.parent_ref.clone(),
-                path: None,
-                sparse: false,
-            };
-            fetcher.fetch(&git_config)?
-        } else {
-            // It's a local path
-            let path = PathBuf::from(parent_url);
-            if path.is_relative() {
-                child_base_path.join(path)
-            } else {
-                path
-            }
-        };
+        // Resolve parent location to a local path
+        let parent_path = resolve_location(parent_location, child_base_path, cache_dir)?;
 
         // Load parent config
         let parent_config_path = parent_path.join("undox.yaml");
@@ -71,7 +49,7 @@ impl ChildConfig {
             ConfigError::Validation(format!("failed to parse parent config: {}", e))
         })?;
 
-        let parent_root = match parent_config {
+        let mut parent_root = match parent_config {
             Config::Root(root) => root,
             Config::Child(_) => return Err(ConfigError::ParentNotRoot),
         };
@@ -80,8 +58,24 @@ impl ChildConfig {
         let source_index = parent_root
             .sources
             .iter()
-            .position(|s| s.name == self.source)
-            .ok_or_else(|| ConfigError::SourceNotFound(self.source.clone()))?;
+            .position(|s| s.name == self.name)
+            .ok_or_else(|| ConfigError::SourceNotFound(self.name.clone()))?;
+
+        // Resolve the content path from child config
+        let content_path = self
+            .content
+            .require_path()
+            .map_err(|git_url| {
+                ConfigError::Validation(format!(
+                    "child config 'content' must be a path, not git: {}",
+                    &git_url
+                ))
+            })?;
+        let resolved_content_path = if content_path.is_relative() {
+            child_base_path.join(content_path)
+        } else {
+            content_path.clone()
+        };
 
         // Clone all sources, fixing paths relative to parent for non-child sources
         let mut sources = parent_root.sources.clone();
@@ -89,49 +83,103 @@ impl ChildConfig {
         for (i, source) in sources.iter_mut().enumerate() {
             if i == source_index {
                 // This is the child's source - point to local content
-                let resolved_content_path = if child_base_path.join("content").is_dir() {
-                    child_base_path.join("content")
-                } else {
-                    child_base_path.to_path_buf()
-                };
-                source.location = SourceLocation::ContentPath {
-                    content_path: resolved_content_path,
+                source.location = SourceLocation::Local {
+                    local: Location::Path {
+                        path: resolved_content_path.clone(),
+                    },
                 };
 
-                // Apply overrides from child config
-                if let Some(repo_url) = &self.overrides.repo_url {
-                    source.repo_url = Some(repo_url.clone());
-                }
-                if let Some(edit_path) = &self.overrides.edit_path {
-                    source.edit_path = Some(edit_path.clone());
-                }
-                if let Some(nav) = &self.overrides.nav {
-                    source.nav = Some(nav.clone());
+                // Apply nav override from child config
+                if let Some(ref overrides) = self.overrides {
+                    if let Some(ref nav) = overrides.nav {
+                        source.nav = Some(nav.clone());
+                    }
                 }
             } else {
                 // Other sources - fix local paths to be absolute relative to parent
-                if let SourceLocation::ContentPath { content_path } = &source.location
-                    && content_path.is_relative()
-                {
-                    source.location = SourceLocation::ContentPath {
-                        content_path: parent_path.join(content_path),
-                    };
+                match &source.location {
+                    SourceLocation::Local { local } => {
+                        if let Some(path) = local.as_path()
+                            && path.is_relative()
+                        {
+                            source.location = SourceLocation::Local {
+                                local: Location::Path {
+                                    path: parent_path.join(path),
+                                },
+                            };
+                        }
+                    }
+                    SourceLocation::Remote { location } => {
+                        if let Some(path) = location.as_path()
+                            && path.is_relative()
+                        {
+                            source.location = SourceLocation::Remote {
+                                location: Location::Path {
+                                    path: parent_path.join(path),
+                                },
+                            };
+                        }
+                    }
+                }
+            }
+        }
+
+        // Apply site overrides from child config
+        if let Some(ref overrides) = self.overrides {
+            if let Some(ref site_overrides) = overrides.site {
+                if let Some(ref repository) = site_overrides.repository {
+                    parent_root.site.repository = Some(repository.clone());
+                }
+                if let Some(ref edit_path) = site_overrides.edit_path {
+                    parent_root.site.edit_path = Some(edit_path.clone());
                 }
             }
         }
 
         // Create root config with all sources (our source now points to local content)
         let synthetic_root = RootConfig {
-            site: parent_root.site.clone(),
+            site: parent_root.site,
             sources,
-            theme: parent_root.theme.clone(),
-            markdown: parent_root.markdown.clone(),
-            dev: parent_root.dev.clone(),
+            theme: parent_root.theme,
+            markdown: parent_root.markdown,
+            dev: parent_root.dev,
         };
 
         Ok(ResolvedChildConfig {
             config: synthetic_root,
             parent_path,
         })
+    }
+}
+
+/// Resolve a Location to a local filesystem path.
+/// For git locations, this fetches the repository to the cache.
+/// For path locations, this resolves relative to base_path.
+fn resolve_location(
+    location: &Location,
+    base_path: &Path,
+    cache_dir: &Path,
+) -> Result<PathBuf, ConfigError> {
+    match location {
+        Location::Path { path } => {
+            if path.is_relative() {
+                Ok(base_path.join(path))
+            } else {
+                Ok(path.clone())
+            }
+        }
+        Location::Git { git } => {
+            let git_loc = git.to_location();
+            eprintln!("Fetching parent config from {}...", git_loc.url);
+            let fetcher = GitFetcher::new(cache_dir.to_path_buf());
+            let repo_path = fetcher.fetch_location(&git_loc)?;
+
+            // Apply subpath if specified
+            if let Some(ref subpath) = git_loc.subpath {
+                Ok(repo_path.join(subpath))
+            } else {
+                Ok(repo_path)
+            }
+        }
     }
 }

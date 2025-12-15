@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use crate::config::RootConfig;
+use crate::config::{Location, RootConfig};
+use crate::git::GitFetcher;
 use crate::util::title_case;
 
 use super::document::ContentItem;
@@ -25,6 +26,12 @@ pub enum BuildError {
 
     #[error("pipeline error: {0}")]
     Pipeline(#[from] PipelineError),
+
+    #[error("git fetch error: {0}")]
+    Git(#[from] crate::git::GitError),
+
+    #[error("theme error: {0}")]
+    Theme(String),
 }
 
 pub struct BuildResult {
@@ -124,7 +131,7 @@ impl Builder {
         );
 
         // Step 4: Load renderer
-        let theme_path = self.theme_path();
+        let theme_path = self.resolve_theme_path()?;
         let mut renderer = Renderer::new(&theme_path)?;
 
         // Step 5: Build source tabs for top-level navigation
@@ -259,36 +266,54 @@ impl Builder {
         }
     }
 
-    /// Get the theme path.
-    /// For now, always uses the built-in default theme.
-    fn theme_path(&self) -> PathBuf {
-        // TODO: Support custom themes from config
+    /// Resolve the theme location to a local path.
+    fn resolve_theme_path(&self) -> Result<PathBuf, BuildError> {
+        let cache_dir = self.base_path.join(".undox/cache/git");
         // Use theme_base_path if set (for child configs), otherwise base_path
         let theme_base = self.theme_base_path.as_ref().unwrap_or(&self.base_path);
 
-        // For now, look for themes relative to the theme base or executable
-        let exe_path = std::env::current_exe().ok();
-        let possible_paths = [
-            // Development: relative to theme base (parent repo for child configs)
-            theme_base.join("themes/default"),
-            // Also try base_path in case theme_base_path doesn't have themes
-            self.base_path.join("themes/default"),
-            // Installed: relative to executable
-            exe_path
-                .as_ref()
-                .and_then(|p| p.parent())
-                .map(|p| p.join("themes/default"))
-                .unwrap_or_default(),
-        ];
+        match &self.config.theme.location {
+            Location::Path { path } => {
+                // Resolve relative paths against theme_base
+                let resolved = if path.is_relative() {
+                    theme_base.join(path)
+                } else {
+                    path.clone()
+                };
 
-        for path in &possible_paths {
-            if path.exists() {
-                return path.clone();
+                if !resolved.exists() {
+                    return Err(BuildError::Theme(format!(
+                        "theme path does not exist: {}",
+                        resolved.display()
+                    )));
+                }
+
+                Ok(resolved)
+            }
+            Location::Git { git } => {
+                // Fetch theme from git
+                let git_loc = git.to_location();
+                eprintln!("Fetching theme from {}...", git_loc.url);
+                let fetcher = GitFetcher::new(cache_dir);
+                let repo_path = fetcher.fetch_location(&git_loc)?;
+
+                // Apply subpath if specified
+                let resolved = if let Some(ref subpath) = git_loc.subpath {
+                    repo_path.join(subpath)
+                } else {
+                    repo_path
+                };
+
+                if !resolved.exists() {
+                    return Err(BuildError::Theme(format!(
+                        "theme path does not exist after git fetch: {}",
+                        resolved.display()
+                    )));
+                }
+
+                Ok(resolved)
             }
         }
-
-        // Fallback - will error when renderer tries to load
-        theme_base.join("themes/default")
     }
 }
 
