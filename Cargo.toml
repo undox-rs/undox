@@ -42,6 +42,7 @@ notify-debouncer-full = "0.5"
 # SSE live reload
 async-stream = "0.3"
 futures-util = "0.3"
+indoc = "2.0.7"
 
 # The profile that 'dist' will build with
 [profile.dist]

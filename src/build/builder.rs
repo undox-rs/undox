@@ -297,9 +297,9 @@ impl Builder {
                 let fetcher = GitFetcher::new(cache_dir);
                 let repo_path = fetcher.fetch_location(&git_loc)?;
 
-                // Apply subpath if specified
-                let resolved = if let Some(ref subpath) = git_loc.subpath {
-                    repo_path.join(subpath)
+                // Apply path if specified
+                let resolved = if let Some(ref path) = git_loc.path {
+                    repo_path.join(path)
                 } else {
                     repo_path
                 };

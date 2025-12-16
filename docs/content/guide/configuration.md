@@ -15,14 +15,16 @@ site:
   url: "https://docs.example.com"
   output: "_site"
 
-theme: default
+theme:
+  location:
+    git: https://github.com/undox-rs/theme-default#main
 
 sources:
   - name: docs
-    path: ./content
+    title: Docs
     url_prefix: /
-    repo_url: "https://github.com/example/repo"
-    edit_path: "content/"
+    local:
+      path: ./content
 ```
 
 ## Site Configuration
@@ -31,34 +33,60 @@ The `site` section defines global settings for your documentation site.
 
 ```yaml
 site:
-  name: "My Documentation"    # Site title (appears in header)
-  url: "https://docs.example.com"  # Base URL for your site
-  output: "_site"             # Output directory (default: _site)
+  name: "My Documentation"   # Site title (appears in header)
+  url: "https://docs.co.com" # Base URL for your site
+  output: "_site"            # Output directory (default: _site)
 ```
 
 | Field | Required | Description |
 |-------|----------|-------------|
 | `name` | Yes | The name of your documentation site |
 | `url` | No | The base URL where your site will be hosted |
+| `favicon` | No | Path to the favicon |
+| `repository` | No | URL to your repository |
+| `edit_path` | No | Path to append to repo URL for "Edit this page" links |
 | `output` | No | Output directory for built files (default: `_site`) |
 
 ## Theme Configuration
 
+Specify the location to the theme you want to use; this can be a git repository or a local path.
+
 ```yaml
-theme: default
+theme:
+  location:
+    git: https://github.com/undox-rs/theme-default#main
 ```
 
-Currently only the `default` theme is available. Custom themes coming soon!
+or 
+
+```yaml
+theme:
+  location:
+    path: ./path/to/theme
+```
+
+If the theme takes any settings, you can specify them in a `settings` key:
+
+```yaml
+theme:
+  location: # ...
+  settings:
+    logo:
+      light: ./assets/logo/wordmark_light.png
+      dark: ./assets/logo/wordmark_dark.png
+```
 
 ## Sources
 
-Sources define where your documentation content comes from. This is the key to undox's multi-repo support.
+Sources define where your documentation content comes from. This is the key to undox's [multi-repo support](/guide/multi-repo).
 
 ```yaml
 sources:
   - name: docs
-    path: ./content
+    title: Docs
     url_prefix: /
+    local:
+      path: ./content
 ```
 
 ### Local Source
@@ -67,19 +95,92 @@ Pull content from a local directory:
 
 ```yaml
 sources:
-  - name: cli
-    path: ./docs/cli
-    url_prefix: /cli
+  - name: docs
+    url_prefix: /
+    local:
+      path: ./docs/content
 ```
 
 | Field | Required | Description |
 |-------|----------|-------------|
 | `name` | Yes | Identifier for this source |
-| `path` | Yes | Path to the content directory |
+| `local` | Maybe | Path to the content directory; required if `remote` is not set. Must be a `path:` specifier |
+| `remote` | Maybe | Location of the remote content; required if `local` is not set. Can be a `git:` or `path:` specifier |
 | `url_prefix` | No | URL prefix for all pages from this source (default: `/`) |
-| `repo_url` | No | GitHub/GitLab URL for "Edit this page" links |
-| `edit_path` | No | Path within the repo to the docs folder |
 | `nav` | No | Explicit navigation structure (see below) |
+
+### Remote Source
+
+Pull content from a remote repository, or another path on your filesystem:
+
+```yaml
+sources:
+  - name: api
+    title: API
+    url_prefix: /api
+    remote:
+      path: ../local-api-repo/docs
+  - name: theme
+    title: Default Theme
+    url_prefix: /theme
+    remote:
+      git: https://github.com/undox-rs/theme-default#main
+```
+
+Using a path is similar to using a `local` source, but treats the source as remote, just like a Git URL.
+
+#### Remote Git Sources
+
+You can specify Git sources via either a string, or a full Git configuration object. If you need to specify a subpath, use the configuration object form:
+
+```yaml
+sources:
+  - name: api
+    remote:
+      git: https://github.com/example/api-repo#main
+    url_prefix: /api 
+  - name: cli
+    remote:
+      git:
+        url: https://github.com/example/cli-repo
+        ref: main           # Branch, tag, or commit
+        path: docs/      # Path within the repo
+    url_prefix: /cli
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `git.url` | Yes | Repository URL (HTTPS or SSH) |
+| `git.ref` | No | Branch, tag, or commit (default: `main`) |
+| `git.path` | No | Path to docs within the repo (default: root) |
+
+undox clones the repository to `.undox/cache/git/` and uses the specified path as the content source. The cache is reused between builds - run with a fresh clone by deleting the cache directory or running `undox clean`.
+
+**SSH Authentication**: For private repositories, ensure your SSH keys are configured. undox uses your system's SSH agent.
+
+### Multiple Sources
+
+Combine documentation from multiple locations:
+
+```yaml
+sources:
+  - name: main
+    url_prefix: /
+    local:
+      path: ./content
+
+  - name: cli
+    url_prefix: /cli
+    remote:
+      path: ../cli-repo/docs
+
+  - name: api
+    url_prefix: /api
+    remote:
+      git: https://github.com/undox-rs/undox-api#main
+```
+
+Each source becomes a section in your navigation. See the [multi-repo](/guide/multi-repo) guide for more details.
 
 ### Custom Navigation
 
@@ -88,7 +189,8 @@ By default, navigation is auto-generated from your file structure, sorted alphab
 ```yaml
 sources:
   - name: docs
-    path: ./content
+    local:
+      path: ./content
     nav:
       - section: Getting Started
         items:
@@ -119,7 +221,9 @@ nav:
       - Config Reference: configuration.md
 ```
 
-### Links with Children
+Child sources can specify their own navigation configuration in their local config file.
+
+#### Links with Children
 
 When a page has related sub-pages, you can nest them as children of the parent link. This creates a hierarchical navigation where the children appear indented under the parent:
 
@@ -144,51 +248,6 @@ This renders as:
 
 Children can be any nav item type, including sections or other links with children, allowing for deeply nested navigation structures.
 
-### Multiple Sources
-
-Combine documentation from multiple locations:
-
-```yaml
-sources:
-  - name: main
-    path: ./content
-    url_prefix: /
-
-  - name: cli
-    path: ../cli-repo/docs
-    url_prefix: /cli
-
-  - name: api
-    path: ../api-repo/docs
-    url_prefix: /api
-```
-
-Each source becomes a section in your navigation.
-
-### Remote Git Sources
-
-Pull documentation directly from a git repository:
-
-```yaml
-sources:
-  - name: cli
-    git:
-      url: https://github.com/example/cli-repo
-      ref: main           # Branch, tag, or commit
-      path: docs/         # Path within the repo
-    url_prefix: /cli
-```
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `git.url` | Yes | Repository URL (HTTPS or SSH) |
-| `git.ref` | No | Branch, tag, or commit (default: `main`) |
-| `git.path` | No | Path to docs within the repo (default: root) |
-
-undox clones the repository to `.undox/cache/git/` and uses the specified path as the content source. The cache is reused between builds - run with a fresh clone by deleting the cache directory.
-
-**SSH Authentication**: For private repositories, ensure your SSH keys are configured. undox uses your system's SSH agent.
-
 ## Dev Server Configuration
 
 Configure the development server behavior:
@@ -204,7 +263,7 @@ dev:
 
 ### Live Reload
 
-When running `undox serve --watch`, the browser automatically refreshes when files change. Disable this with:
+When running `undox serve --watch` (the default), the browser automatically refreshes when files change. Disable this with:
 
 ```yaml
 dev:
@@ -235,17 +294,4 @@ You can use environment variables in your config:
 ```yaml
 site:
   url: ${SITE_URL}
-```
-
-## Minimal Config
-
-The simplest possible config:
-
-```yaml
-site:
-  name: "Docs"
-
-sources:
-  - name: docs
-    path: ./content
 ```

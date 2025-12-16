@@ -4,7 +4,7 @@ site:
   favicon: ./assets/logo/logo.png
   output: "_site"
   repository: "https://github.com/undox/undox"
-  edit_path: "docs/"
+  edit_path: "/edit/main/docs/content/"
 
 theme:
   location:
@@ -26,14 +26,6 @@ sources:
     url_prefix: /theme
     location:
       git: https://github.com/undox-rs/theme-default#main
-#  - name: sub
-#    title: "Subdocs"
-#    url_prefix: /sub
-#    location:
-#      git:
-#        url: https://github.com/BinaryMuse/undox-subdocs
-#        ref: main
-#        subpath: content
 
 markdown:
   extensions:

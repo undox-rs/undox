@@ -62,15 +62,12 @@ impl ChildConfig {
             .ok_or_else(|| ConfigError::SourceNotFound(self.name.clone()))?;
 
         // Resolve the content path from child config
-        let content_path = self
-            .content
-            .require_path()
-            .map_err(|git_url| {
-                ConfigError::Validation(format!(
-                    "child config 'content' must be a path, not git: {}",
-                    &git_url
-                ))
-            })?;
+        let content_path = self.content.require_path().map_err(|git_url| {
+            ConfigError::Validation(format!(
+                "child config 'content' must be a path, not git: {}",
+                &git_url
+            ))
+        })?;
         let resolved_content_path = if content_path.is_relative() {
             child_base_path.join(content_path)
         } else {
@@ -89,11 +86,9 @@ impl ChildConfig {
                     },
                 };
 
-                // Apply nav override from child config
-                if let Some(ref overrides) = self.overrides {
-                    if let Some(ref nav) = overrides.nav {
-                        source.nav = Some(nav.clone());
-                    }
+                // Apply nav from child config
+                if let Some(ref nav) = self.nav {
+                    source.nav = Some(nav.clone());
                 }
             } else {
                 // Other sources - fix local paths to be absolute relative to parent
@@ -174,9 +169,9 @@ fn resolve_location(
             let fetcher = GitFetcher::new(cache_dir.to_path_buf());
             let repo_path = fetcher.fetch_location(&git_loc)?;
 
-            // Apply subpath if specified
-            if let Some(ref subpath) = git_loc.subpath {
-                Ok(repo_path.join(subpath))
+            // Apply path if specified
+            if let Some(ref path) = git_loc.path {
+                Ok(repo_path.join(path))
             } else {
                 Ok(repo_path)
             }

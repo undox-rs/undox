@@ -73,9 +73,9 @@ impl ResolvedSource {
         let local_path = match &config.location {
             SourceLocation::Local { local } => {
                 // Local content - must be a path, not git
-                let path = local.require_path().map_err(|git_url| {
-                    SourceError::LocalMustBePath(git_url)
-                })?;
+                let path = local
+                    .require_path()
+                    .map_err(|git_url| SourceError::LocalMustBePath(git_url))?;
 
                 // Resolve relative paths against base_path
                 let resolved = if path.is_relative() {
@@ -154,9 +154,9 @@ impl ResolvedSource {
                         let fetcher = GitFetcher::new(cache_dir.to_path_buf());
                         let repo_path = fetcher.fetch_location(&git_loc)?;
 
-                        // Apply subpath if specified
-                        let resolved = if let Some(ref subpath) = git_loc.subpath {
-                            repo_path.join(subpath)
+                        // Apply path if specified
+                        let resolved = if let Some(ref path) = git_loc.path {
+                            repo_path.join(path)
                         } else {
                             repo_path
                         };

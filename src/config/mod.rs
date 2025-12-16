@@ -13,8 +13,8 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 // Re-export all types for convenient access
 pub use types::{
-    ChildConfig, DevConfig, GitLocation, Location, MarkdownConfig, NavConfig, NavItem, RootConfig,
-    SiteConfig, SourceConfig, SourceLocation, ThemeConfig, WatchConfig,
+    ChildConfig, DevConfig, GitLocation, GitValue, Location, MarkdownConfig, NavConfig, NavItem,
+    RootConfig, SiteConfig, SourceConfig, SourceLocation, ThemeConfig, WatchConfig,
 };
 
 // =============================================================================

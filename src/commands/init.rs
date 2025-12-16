@@ -1,11 +1,29 @@
-use std::path::PathBuf;
+use indoc::indoc;
 
-use crate::{
-    InitArgs,
-    config::{
-        Config, DevConfig, Location, MarkdownConfig, RootConfig, SiteConfig, ThemeConfig,
-    },
-};
+use crate::InitArgs;
+
+const DEFAULT_CONFIG: &str = indoc! {r#"
+site:
+  name: My Undox Site
+  url: "https://my-undox-site.com"
+  output: _site
+
+theme:
+  location:
+    git: https://github.com/undox-rs/theme-default.git#main
+
+sources:
+  - name: Docs
+    title: Docs
+    url_prefix: /
+    local:
+      path: ./content
+"#};
+
+const GITIGNORE_CONTENT: &str = indoc! {r#"
+_site/
+.undox/
+"#};
 
 pub async fn run(args: &InitArgs) -> Result<(), anyhow::Error> {
     let path = if args.path.is_relative() {
@@ -20,40 +38,34 @@ pub async fn run(args: &InitArgs) -> Result<(), anyhow::Error> {
             println!("Created directory {path}", path = path.display());
         } else {
             return Err(anyhow::anyhow!(
-                "Directory does not exist: {path}",
+                "Directory does not exist: {path}\nUse --create to create it",
                 path = path.display()
             ));
         }
     }
 
-    let default_config = Config::Root(RootConfig {
-        site: SiteConfig {
-            name: "My Undox Site".into(),
-            url: Some("https://my-undox-site.com".into()),
-            output: "_site".into(),
-            favicon: None,
-            repository: None,
-            edit_path: None,
-        },
-        sources: vec![],
-        theme: ThemeConfig {
-            location: Location::Path {
-                path: PathBuf::from("./themes/default"),
-            },
-            settings: serde_json::Value::Object(Default::default()),
-        },
-        markdown: MarkdownConfig::default(),
-        dev: DevConfig::default(),
-    });
+    let mut read_dir = tokio::fs::read_dir(path.clone()).await?;
+    let is_empty = read_dir.next_entry().await?.is_none();
+
+    if !is_empty && !args.force {
+        return Err(anyhow::anyhow!(
+            "Directory is not empty: {path}\nUse --force to overwrite",
+            path = path.display()
+        ));
+    }
 
     println!("Initializing project in {}", path.display());
 
-    let config_text = serde_yaml::to_string(&default_config)?;
+    let config_text = DEFAULT_CONFIG.to_string();
     tokio::fs::write(path.join("undox.yaml"), config_text).await?;
+    tokio::fs::write(path.join(".gitignore"), GITIGNORE_CONTENT).await?;
+
+    tokio::fs::create_dir_all(path.join("content")).await?;
+    tokio::fs::write(path.join("content/index.md"), "# Hello, World!").await?;
 
     println!(
-        "Created config file {config_file}",
-        config_file = path.join("undox.yaml").display()
+        "Created undox site in {path}",
+        path = path.canonicalize().ok().unwrap_or(path).display()
     );
 
     Ok(())

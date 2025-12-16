@@ -16,10 +16,10 @@ There are two types of undox configurations:
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                    Root Site                         │
+│                    Root Site                        │
 │  (defines theme, sources, site settings)            │
-│                                                      │
-│   Sources:                                           │
+│                                                     │
+│   Sources:                                          │
 │   ├── /          → Local ./content                  │
 │   ├── /cli       → git: cli-repo/docs               │
 │   └── /desktop   → git: desktop-repo/docs           │
@@ -36,12 +36,15 @@ site:
   name: "My Project Docs"
   url: "https://docs.example.com"
 
-theme: default
+theme:
+  location:
+    git: https://github.com/undox-rs/theme-default#main
 
 sources:
   # Main documentation (local)
   - name: main
-    path: ./content
+    local:
+      path: ./content
     url_prefix: /
 
   # CLI docs from another repo
@@ -73,14 +76,29 @@ Create an `undox.yaml` in the child repo:
 
 ```yaml
 # undox.yaml (child repo)
+name: cli   # Which source am I in the parent config?
 parent:
-  git:
-    url: https://github.com/example/docs-site
-    ref: main
-  source: cli   # Which source am I in the parent config?
+  git: https://github.com/example/docs-site#main
 
 # Local path to content (relative to this config)
-path: ./docs
+content:
+  path: ./docs
+
+overrides:
+  site:
+    # site settings overrides for the child pages
+  theme:
+    # theme settings overrides for the child pages
+
+# Navigation can be explicit, or auto-generated from the filesystem
+# If not set, will use the parent's settings
+nav:
+  - name: Home
+    url: /
+  - name: CLI
+    url: /cli
+  - name: Desktop
+    url: /desktop
 ```
 
 ### How It Works
@@ -100,17 +118,19 @@ During development, you might want to point to a local copy of the parent site i
 
 ```yaml
 # undox.yaml (child repo)
+name: cli
 parent:
   git:
     url: https://github.com/example/docs-site
     ref: main
-  source: cli
 
-path: ./docs
+content:
+  path: ./docs
 
 # Override for local development
 dev:
-  parent: ../docs-site  # Local path to parent repo
+  parent:
+    path: ../docs-site  # Local path to parent repo
 ```
 
 When `dev.parent` is set, undox uses that path instead of cloning from git. This is useful when you're working on both the parent site and child content simultaneously.
@@ -127,45 +147,48 @@ site:
 
 sources:
   - name: main
-    path: ./content
     url_prefix: /
+    local:
+      path: ./content
 
   - name: cli
+    title: "CLI"
+    url_prefix: /cli
     git:
       url: https://github.com/atuinsh/atuin
       path: docs/
-    url_prefix: /cli
-    title: "CLI"
 
   - name: desktop
+    title: "Desktop"
+    url_prefix: /desktop
     git:
       url: https://github.com/atuinsh/desktop
       path: docs/
-    url_prefix: /desktop
-    title: "Desktop"
 ```
 
 **CLI repo** (`atuin` repo, in `docs/undox.yaml`):
 ```yaml
+name: cli
 parent:
   git:
     url: https://github.com/atuinsh/docs-site
-  source: cli
 
-path: .
+content:
+  path: ./content
 ```
 
 **Desktop repo** (`desktop` repo, in `docs/undox.yaml`):
 ```yaml
+name: desktop
 parent:
   git:
     url: https://github.com/atuinsh/docs-site
-  source: desktop
 
-path: .
+content:
+  path: ./content
 ```
 
-Now developers in each repo can run `undox serve --watch` to preview their documentation with the full site theme and navigation.
+Now developers in each repo can run `undox serve` to preview their documentation with the full site theme and navigation.
 
 ## Best Practices
 

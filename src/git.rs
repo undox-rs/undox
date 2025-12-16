@@ -57,7 +57,7 @@ impl GitFetcher {
     /// If the repository is already cached, it will be updated (fetch + checkout).
     /// Otherwise, a fresh clone will be performed.
     ///
-    /// Note: This returns the repository root. Use `git.subpath` separately to
+    /// Note: This returns the repository root. Use `git.path` separately to
     /// navigate to a subdirectory within the repo.
     pub fn fetch_location(&self, git: &GitLocation) -> Result<PathBuf, GitError> {
         // Ensure cache directory exists
@@ -78,15 +78,15 @@ impl GitFetcher {
 
     /// Generate a cache key (directory name) from a URL.
     ///
-    /// Uses a hash of the URL, git_ref, and subpath to create a short, filesystem-safe name.
+    /// Uses a hash of the URL, git_ref, and path to create a short, filesystem-safe name.
     fn cache_key(&self, location: &GitLocation) -> String {
         let mut hasher = DefaultHasher::new();
         location.url.hash(&mut hasher);
         if let Some(git_ref) = &location.git_ref {
             git_ref.hash(&mut hasher);
         }
-        if let Some(subpath) = &location.subpath {
-            subpath.to_string_lossy().hash(&mut hasher);
+        if let Some(path) = &location.path {
+            path.to_string_lossy().hash(&mut hasher);
         }
         format!("{:016x}", hasher.finish())
     }

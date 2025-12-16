@@ -2,12 +2,12 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 
-mod build;
-mod commands;
-mod config;
-mod git;
-mod theme;
-mod util;
+pub mod build;
+pub mod commands;
+pub mod config;
+pub mod git;
+pub mod theme;
+pub mod util;
 
 #[derive(Parser)]
 struct Args {
@@ -17,24 +17,28 @@ struct Args {
 }
 
 #[derive(Parser)]
-struct InitArgs {
+pub struct InitArgs {
     /// The path to initialize the project in
     path: PathBuf,
 
     /// Whether to create the directory if it doesn't exist
     #[arg(short, long, default_value = "false")]
     create: bool,
+
+    /// Whether to overwrite files in the directory if they exist
+    #[arg(short, long, default_value = "false")]
+    force: bool,
 }
 
 #[derive(Parser)]
-struct BuildArgs {
+pub struct BuildArgs {
     /// The path to the configuration file
-    #[arg(short, long, default_value = "undox.yaml")]
+    #[arg(short, long, alias = "config", default_value = "undox.yaml")]
     config_file: Option<PathBuf>,
 }
 
 #[derive(Parser)]
-struct ServeArgs {
+pub struct ServeArgs {
     /// The address to bind to
     #[arg(short, long, default_value = "0.0.0.0")]
     bind: String,
@@ -48,12 +52,23 @@ struct ServeArgs {
     open: bool,
 
     /// The path to the configuration file
-    #[arg(short, long, default_value = "undox.yaml")]
+    #[arg(short, long, alias = "config", default_value = "undox.yaml")]
     config_file: Option<PathBuf>,
 
-    /// Whether to watch for changes and rebuild automatically
+    /// Whether to watch for changes and rebuild automatically (default: true)
     #[arg(short, long, default_value = "true")]
     watch: bool,
+}
+
+#[derive(Parser)]
+pub struct CleanArgs {
+    /// The path to the configuration file
+    #[arg(short, long, alias = "config", default_value = "undox.yaml")]
+    config_file: Option<PathBuf>,
+
+    /// Show what will be deleted, but don't delete anything
+    #[arg(short, long, default_value = "false")]
+    dry_run: bool,
 }
 
 #[derive(Subcommand)]
@@ -66,6 +81,9 @@ enum UndoxCommand {
 
     /// Serve the undox project on a local port
     Serve(ServeArgs),
+
+    /// Delete the generated site folder and the undox cache folder
+    Clean(CleanArgs),
 }
 
 #[tokio::main]
@@ -81,6 +99,9 @@ async fn main() -> Result<(), anyhow::Error> {
         }
         UndoxCommand::Serve(args) => {
             commands::serve::run(&args).await?;
+        }
+        UndoxCommand::Clean(args) => {
+            commands::clean::run(&args).await?;
         }
     }
 

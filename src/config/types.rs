@@ -26,7 +26,7 @@ use serde::{Deserialize, Serialize};
 /// git:
 ///   url: https://repo
 ///   ref: main
-///   subpath: docs
+///   path: docs
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -43,7 +43,7 @@ pub enum Location {
 pub enum GitValue {
     /// Compact format: "https://repo#ref"
     Compact(String),
-    /// Expanded format with url, ref, and subpath
+    /// Expanded format with url, ref, and path
     Expanded(GitLocation),
 }
 
@@ -57,7 +57,7 @@ pub struct GitLocation {
     pub git_ref: Option<String>,
     /// Subdirectory within the repository
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subpath: Option<PathBuf>,
+    pub path: Option<PathBuf>,
 }
 
 impl GitLocation {
@@ -67,13 +67,13 @@ impl GitLocation {
             GitLocation {
                 url: url.to_string(),
                 git_ref: Some(git_ref.to_string()),
-                subpath: None,
+                path: None,
             }
         } else {
             GitLocation {
                 url: s.to_string(),
                 git_ref: None,
-                subpath: None,
+                path: None,
             }
         }
     }
@@ -169,6 +169,9 @@ pub struct ChildConfig {
     pub parent: Location,
     /// Path to the content directory
     pub content: Location,
+    /// Optional navigation for this source
+    #[serde(default)]
+    pub nav: Option<NavConfig>,
     /// Optional overrides for root config settings
     #[serde(default)]
     pub overrides: Option<RootConfigOverrides>,
@@ -183,9 +186,6 @@ pub struct RootConfigOverrides {
     /// Site config overrides
     #[serde(default)]
     pub site: Option<SiteConfigOverrides>,
-    /// Navigation override for this source
-    #[serde(default)]
-    pub nav: Option<NavConfig>,
     // Note: sources, theme, markdown are intentionally not included
     // and will be validated at runtime if present
 }
