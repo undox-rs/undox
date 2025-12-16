@@ -112,9 +112,6 @@ fn format_root_error(e: serde_yaml::Error) -> String {
         // Could be site.name or source[].name - provide both possibilities
         return "invalid config: missing required 'name' field (check 'site.name' and each source's 'name')".to_string();
     }
-    if msg.contains("missing field `theme`") {
-        return "invalid config: 'theme' is required\n\nExample:\n  theme:\n    location:\n      path: ./themes/default".to_string();
-    }
     if msg.contains("location must have either") {
         return "invalid config: each source must have either 'local: { path: ... }' for inline content or 'location: { path/git: ... }' for external sources".to_string();
     }

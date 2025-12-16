@@ -272,13 +272,13 @@ impl Builder {
         // Use theme_base_path if set (for child configs), otherwise base_path
         let theme_base = self.theme_base_path.as_ref().unwrap_or(&self.base_path);
 
-        match &self.config.theme.location {
+        match self.config.theme.resolved_location() {
             Location::Path { path } => {
                 // Resolve relative paths against theme_base
                 let resolved = if path.is_relative() {
-                    theme_base.join(path)
+                    theme_base.join(&path)
                 } else {
-                    path.clone()
+                    path
                 };
 
                 if !resolved.exists() {

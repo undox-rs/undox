@@ -152,6 +152,7 @@ impl Location {
 pub struct RootConfig {
     pub site: SiteConfig,
     pub sources: Vec<SourceConfig>,
+    #[serde(default)]
     pub theme: ThemeConfig,
     #[serde(default)]
     pub markdown: MarkdownConfig,
@@ -180,14 +181,14 @@ pub struct ChildConfig {
 }
 
 /// Partial root config that can be used as overrides in child config.
-/// Runtime validation will ensure only allowed fields are set.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct RootConfigOverrides {
     /// Site config overrides
     #[serde(default)]
     pub site: Option<SiteConfigOverrides>,
-    // Note: sources, theme, markdown are intentionally not included
-    // and will be validated at runtime if present
+    /// Theme override
+    #[serde(default)]
+    pub theme: Option<ThemeConfig>,
 }
 
 /// Partial site config for overrides
@@ -224,12 +225,45 @@ fn default_output() -> PathBuf {
 // =============================================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ThemeConfig {
-    /// Location of the theme (path or git)
-    pub location: Location,
+    /// Theme name (shorthand for undox-rs/theme-{name})
+    /// If neither name nor location is specified, defaults to "default"
+    pub name: Option<String>,
+    /// Location of the theme (path or git) - takes precedence over name
+    pub location: Option<Location>,
     /// Arbitrary settings passed to templates as `theme.*`
     #[serde(default)]
     pub settings: serde_json::Value,
+}
+
+impl Default for ThemeConfig {
+    fn default() -> Self {
+        Self {
+            name: None,
+            location: None,
+            settings: serde_json::Value::Null,
+        }
+    }
+}
+
+impl ThemeConfig {
+    /// Resolve the theme location.
+    /// If `location` is set, use it directly.
+    /// Otherwise, use `name` (defaulting to "default") to construct a git URL.
+    pub fn resolved_location(&self) -> Location {
+        if let Some(ref loc) = self.location {
+            loc.clone()
+        } else {
+            let name = self.name.as_deref().unwrap_or("default");
+            Location::Git {
+                git: GitValue::Compact(format!(
+                    "https://github.com/undox-rs/theme-{}.git#main",
+                    name
+                )),
+            }
+        }
+    }
 }
 
 // =============================================================================

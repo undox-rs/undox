@@ -16,8 +16,7 @@ site:
   output: "_site"
 
 theme:
-  location:
-    git: https://github.com/undox-rs/theme-default#main
+  name: default
 
 sources:
   - name: docs
@@ -63,6 +62,13 @@ or
 theme:
   location:
     path: ./path/to/theme
+```
+
+You can specify a theme name instead of a location, and undox will look for that theme at `https://github.com/undox-rs/theme-<name>`:
+
+```yaml
+theme:
+  name: default # aka https://github.com/undox-rs/theme-default
 ```
 
 If the theme takes any settings, you can specify them in a `settings` key:

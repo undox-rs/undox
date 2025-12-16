@@ -119,7 +119,8 @@ impl ChildConfig {
             }
         }
 
-        // Apply site overrides from child config
+        // Apply overrides from child config
+        let mut theme = parent_root.theme;
         if let Some(ref overrides) = self.overrides {
             if let Some(ref site_overrides) = overrides.site {
                 if let Some(ref repository) = site_overrides.repository {
@@ -129,13 +130,16 @@ impl ChildConfig {
                     parent_root.site.edit_path = Some(edit_path.clone());
                 }
             }
+            if let Some(ref theme_override) = overrides.theme {
+                theme = theme_override.clone();
+            }
         }
 
         // Create root config with all sources (our source now points to local content)
         let synthetic_root = RootConfig {
             site: parent_root.site,
             sources,
-            theme: parent_root.theme,
+            theme,
             markdown: parent_root.markdown,
             dev: parent_root.dev,
         };

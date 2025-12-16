@@ -7,8 +7,7 @@ site:
   edit_path: "/edit/main/docs/content/"
 
 theme:
-  location:
-    git: https://github.com/undox-rs/theme-default#main
+  name: default
   settings:
     logo:
       light: ./assets/logo/wordmark_light.png

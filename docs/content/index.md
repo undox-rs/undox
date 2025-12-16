@@ -30,7 +30,8 @@ site:
 
 sources:
   - name: docs
-    path: ./content
+    local:
+      path: ./content
 ```
 
 ```bash

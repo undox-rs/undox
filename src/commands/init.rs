@@ -8,10 +8,6 @@ site:
   url: "https://my-undox-site.com"
   output: _site
 
-theme:
-  location:
-    git: https://github.com/undox-rs/theme-default.git#main
-
 sources:
   - name: Docs
     title: Docs
